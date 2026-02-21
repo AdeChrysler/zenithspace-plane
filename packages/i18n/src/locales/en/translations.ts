@@ -1576,6 +1576,9 @@ export default {
           },
         },
       },
+      ai_agent: {
+        title: "AI Agent",
+      },
       api_tokens: {
         title: "Personal Access Tokens",
         add_token: "Add personal access token",

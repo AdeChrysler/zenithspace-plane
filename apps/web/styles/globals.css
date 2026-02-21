@@ -41,14 +41,14 @@
   --editor-colors-purple-background: #e3d8fd;
 }
 [data-theme*="dark"] {
-  --editor-colors-gray-background: #404144;
-  --editor-colors-peach-background: #593032;
-  --editor-colors-pink-background: #562e3d;
-  --editor-colors-orange-background: #583e2a;
-  --editor-colors-green-background: #1d4a3b;
-  --editor-colors-light-blue-background: #1f495c;
-  --editor-colors-dark-blue-background: #223558;
-  --editor-colors-purple-background: #3d325a;
+  --editor-colors-gray-background: #1a1a1a;
+  --editor-colors-peach-background: #1a0505;
+  --editor-colors-pink-background: #1a0510;
+  --editor-colors-orange-background: #1a0f05;
+  --editor-colors-green-background: #051a10;
+  --editor-colors-light-blue-background: #05101a;
+  --editor-colors-dark-blue-background: #050a1a;
+  --editor-colors-purple-background: #0f051a;
 }
 /* end background colors */
 

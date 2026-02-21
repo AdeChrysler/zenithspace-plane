@@ -142,8 +142,8 @@ export function InstanceSetupForm() {
       <div className="flex flex-col justify-center items-center flex-grow w-full py-6 mt-10">
         <div className="relative flex flex-col gap-6 max-w-[22.5rem] w-full">
           <FormHeader
-            heading="Setup your Plane Instance"
-            subHeading="Post setup you will be able to manage this Plane instance."
+            heading="Setup your ZenithSpace Instance"
+            subHeading="Post setup you will be able to manage this ZenithSpace instance."
           />
           {errorData.type &&
             errorData?.message &&
@@ -352,7 +352,7 @@ export function InstanceSetupForm() {
                 />
               </div>
               <label className="text-13 text-tertiary font-medium cursor-pointer" htmlFor="is_telemetry_enabled">
-                Allow Plane to anonymously collect usage events.{" "}
+                Allow ZenithSpace to anonymously collect usage events.{" "}
                 <a
                   tabIndex={-1}
                   href="https://developers.plane.so/self-hosting/telemetry"

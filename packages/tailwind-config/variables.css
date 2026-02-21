@@ -398,15 +398,15 @@
 
     /* ---------- Dark mode color tokens ---------- */
     @variant dark {
-      /* Neutral colors */
-      --neutral-black: oklch(0.1689 0.0021 230.81);
-      --neutral-100: oklch(0.1932 0.002 230.81);
-      --neutral-200: oklch(0.2158 0.0025 230.82);
-      --neutral-300: oklch(0.2378 0.0029 230.83);
-      --neutral-400: oklch(0.2593 0.0033 230.84);
-      --neutral-500: oklch(0.3011 0.0041 230.85);
-      --neutral-600: oklch(0.3415 0.0049 230.86);
-      --neutral-700: oklch(0.3999 0.0059 230.87);
+      /* Neutral colors — true black theme (Linear-style) */
+      --neutral-black: oklch(0% 0 0);
+      --neutral-100: oklch(8% 0 0);
+      --neutral-200: oklch(12% 0 0);
+      --neutral-300: oklch(15% 0 0);
+      --neutral-400: oklch(18% 0 0);
+      --neutral-500: oklch(21% 0 0);
+      --neutral-600: oklch(24% 0 0);
+      --neutral-700: oklch(28% 0 0);
       --neutral-800: oklch(0.5989 0.0096 230.88);
       --neutral-900: oklch(0.6835 0.0074 230.81);
       --neutral-1000: oklch(0.7655 0.0054 230.76);
@@ -468,27 +468,27 @@
       --scrollbar-thumb-surface-hover: var(--alpha-white-300);
       --scrollbar-thumb-hover: var(--alpha-white-400);
       --scrollbar-thumb-active: var(--alpha-white-500);
-      /* Background colors */
-      --bg-canvas: var(--neutral-black);
-      --bg-surface-1: var(--neutral-100);
-      --bg-surface-2: var(--neutral-200);
-      --bg-layer-1: var(--neutral-200);
-      --bg-layer-1-hover: var(--neutral-300);
-      --bg-layer-1-active: var(--neutral-400);
-      --bg-layer-1-selected: var(--neutral-400);
-      --bg-layer-2: var(--neutral-300);
-      --bg-layer-2-hover: var(--neutral-400);
-      --bg-layer-2-active: var(--neutral-500);
-      --bg-layer-2-selected: var(--neutral-500);
-      --bg-layer-3: var(--neutral-400);
-      --bg-layer-3-hover: var(--neutral-500);
-      --bg-layer-3-active: var(--neutral-600);
-      --bg-layer-3-selected: var(--neutral-600);
+      /* Background colors — true black surfaces */
+      --bg-canvas: oklch(0% 0 0);
+      --bg-surface-1: oklch(8% 0 0);
+      --bg-surface-2: oklch(10% 0 0);
+      --bg-layer-1: oklch(10% 0 0);
+      --bg-layer-1-hover: oklch(13% 0 0);
+      --bg-layer-1-active: oklch(16% 0 0);
+      --bg-layer-1-selected: oklch(16% 0 0);
+      --bg-layer-2: oklch(12% 0 0);
+      --bg-layer-2-hover: oklch(15% 0 0);
+      --bg-layer-2-active: oklch(18% 0 0);
+      --bg-layer-2-selected: oklch(18% 0 0);
+      --bg-layer-3: oklch(15% 0 0);
+      --bg-layer-3-hover: oklch(18% 0 0);
+      --bg-layer-3-active: oklch(21% 0 0);
+      --bg-layer-3-selected: oklch(21% 0 0);
       --bg-layer-transparent: var(--alpha-black-0);
       --bg-layer-transparent-hover: var(--alpha-white-100);
       --bg-layer-transparent-active: var(--alpha-white-200);
       --bg-layer-transparent-selected: var(--alpha-white-300);
-      --bg-layer-disabled: var(--neutral-700);
+      --bg-layer-disabled: oklch(22% 0 0);
       --bg-accent-primary: var(--brand-default);
       --bg-accent-primary-hover: var(--brand-500);
       --bg-accent-primary-active: var(--brand-400);
@@ -627,18 +627,18 @@
       --label-purple-text: var(--extended-color-purple-400);
       --label-purple-border: var(--extended-color-purple-400);
       --label-purple-focus: var(--extended-color-purple-300);
-      /* Illustration colors */
-      --illustration-fill-primary: var(--neutral-400);
-      --illustration-fill-secondary: var(--neutral-500);
-      --illustration-fill-tertiary: var(--neutral-700);
-      --illustration-fill-quaternary: var(--neutral-700);
+      /* Illustration colors — darkened proportionally */
+      --illustration-fill-primary: oklch(15% 0 0);
+      --illustration-fill-secondary: oklch(18% 0 0);
+      --illustration-fill-tertiary: oklch(24% 0 0);
+      --illustration-fill-quaternary: oklch(24% 0 0);
       --illustration-stroke-primary: var(--neutral-700);
       --illustration-stroke-secondary: var(--neutral-800);
       --illustration-stroke-tertiary: var(--neutral-1000);
       /* Neutral plan colors */
       --txt-plans-neutral-primary: var(--neutral-1000);
       --txt-plans-neutral-color: var(--neutral-100);
-      --bg-plans-neutral-subtle: var(--neutral-500);
+      --bg-plans-neutral-subtle: oklch(18% 0 0);
       --bg-plans-neutral-solid: var(--neutral-1100);
       /* Brand plan colors */
       --txt-plans-brand-primary: var(--brand-1000);
