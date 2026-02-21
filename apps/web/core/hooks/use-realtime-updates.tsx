@@ -68,18 +68,24 @@ export const useRealtimeUpdates = (
 
       ws.onclose = () => {
         wsRef.current = null;
-        window.dispatchEvent(
-          new CustomEvent("plane:ws_status", {
-            detail: { type: "ws_disconnected" },
-          })
-        );
         // Reconnect with exponential backoff
         if (reconnectAttempts.current < MAX_RECONNECT_ATTEMPTS) {
+          window.dispatchEvent(
+            new CustomEvent("plane:ws_status", {
+              detail: { type: "ws_disconnected" },
+            })
+          );
           const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 30000);
           reconnectAttempts.current++;
           reconnectTimeoutRef.current = setTimeout(() => {
             connectRef.current?.();
           }, delay);
+        } else {
+          window.dispatchEvent(
+            new CustomEvent("plane:ws_status", {
+              detail: { type: "ws_failed" },
+            })
+          );
         }
       };
 
@@ -109,5 +115,5 @@ export const useRealtimeUpdates = (
         wsRef.current = null;
       }
     };
-  }, []);
+  }, [workspaceSlug]);
 };

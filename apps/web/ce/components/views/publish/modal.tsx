@@ -4,7 +4,7 @@
  * See the LICENSE file for details.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
 import { Controller, useForm } from "react-hook-form";
@@ -13,7 +13,6 @@ import { Button } from "@plane/propel/button";
 import { TOAST_TYPE, setToast } from "@plane/propel/toast";
 import type { IProjectView } from "@plane/types";
 import { Loader, ToggleSwitch, ModalCore, EModalWidth } from "@plane/ui";
-import { copyTextToClipboard } from "@plane/utils";
 import { ViewService } from "@/services/view.service";
 
 type Props = {
@@ -60,6 +59,12 @@ export const PublishViewModal = observer(function PublishViewModal(props: Props)
   const handleFormSubmit = async (formData: TPublishViewSettings) => {
     if (!workspaceSlug || !projectId) return;
     try {
+      await viewService.patchView(
+        workspaceSlug as string,
+        projectId as string,
+        view.id,
+        formData as unknown as Partial<IProjectView>
+      );
       setToast({
         type: TOAST_TYPE.SUCCESS,
         title: "Success!",

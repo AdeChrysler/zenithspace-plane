@@ -42,7 +42,8 @@ export class AgentService extends APIService {
     request: TAgentRequest,
     onChunk: (chunk: TAgentStreamChunk) => void,
     onComplete: () => void,
-    onError: (error: string) => void
+    onError: (error: string) => void,
+    signal?: AbortSignal
   ): Promise<void> {
     try {
       const response = await fetch(`${ORCHESTRATOR_URL}/api/agent/stream`, {
@@ -51,6 +52,7 @@ export class AgentService extends APIService {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(request),
+        signal,
       });
 
       if (!response.ok) {
@@ -65,18 +67,23 @@ export class AgentService extends APIService {
       }
 
       const decoder = new TextDecoder();
+      let lineBuffer = "";
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const text = decoder.decode(value, { stream: true });
-        const lines = text.split("\n").filter((l) => l.trim());
+        lineBuffer += decoder.decode(value, { stream: true });
+        const lines = lineBuffer.split("\n");
+        // Keep the last (possibly incomplete) line in the buffer
+        lineBuffer = lines.pop() ?? "";
 
         for (const line of lines) {
-          if (line.startsWith("data: ")) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          if (trimmed.startsWith("data: ")) {
             try {
-              const chunk = JSON.parse(line.slice(6)) as TAgentStreamChunk;
+              const chunk = JSON.parse(trimmed.slice(6)) as TAgentStreamChunk;
               onChunk(chunk);
               if (chunk.type === "done") {
                 onComplete();
@@ -84,14 +91,25 @@ export class AgentService extends APIService {
               }
             } catch {
               // If not JSON, treat as plain text
-              onChunk({ type: "text", content: line.slice(6) });
+              onChunk({ type: "text", content: trimmed.slice(6) });
             }
           }
         }
       }
 
+      // Process any remaining data in the buffer
+      if (lineBuffer.trim().startsWith("data: ")) {
+        try {
+          const chunk = JSON.parse(lineBuffer.trim().slice(6)) as TAgentStreamChunk;
+          onChunk(chunk);
+        } catch {
+          onChunk({ type: "text", content: lineBuffer.trim().slice(6) });
+        }
+      }
+
       onComplete();
     } catch (e: unknown) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
       const errorMessage = e instanceof Error ? e.message : "Agent request failed";
       onError(errorMessage);
     }

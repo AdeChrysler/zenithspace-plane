@@ -35,7 +35,13 @@ export const AgentStreamingResponse = observer(function AgentStreamingResponse(p
   const responseRef = useRef("");
   const containerRef = useRef<HTMLDivElement>(null);
 
+  const abortRef = useRef<AbortController | null>(null);
+
   useEffect(() => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     setIsStreaming(true);
     setResponse("");
     setThinking("");
@@ -70,8 +76,11 @@ export const AgentStreamingResponse = observer(function AgentStreamingResponse(p
       (err) => {
         setError(err);
         setIsStreaming(false);
-      }
+      },
+      controller.signal
     );
+
+    return () => { controller.abort(); };
     // Only run once on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -84,6 +93,10 @@ export const AgentStreamingResponse = observer(function AgentStreamingResponse(p
   };
 
   const handleRetry = () => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     setIsStreaming(true);
     setResponse("");
     setThinking("");
@@ -110,7 +123,8 @@ export const AgentStreamingResponse = observer(function AgentStreamingResponse(p
       (err) => {
         setError(err);
         setIsStreaming(false);
-      }
+      },
+      controller.signal
     );
   };
 

@@ -32,6 +32,7 @@ export const RealtimeConnectionIndicator = () => {
       const detail = (e as CustomEvent<TWsStatusDetail>).detail;
       if (detail?.type === "ws_connected") setStatus("connected");
       else if (detail?.type === "ws_disconnected") setStatus("connecting");
+      else if (detail?.type === "ws_failed") setStatus("disconnected");
     };
 
     // If we get any realtime event, we know the connection is active
