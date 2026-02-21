@@ -49,7 +49,7 @@ export const EstimatePointCreate = observer(function EstimatePointCreate(props: 
     handleEstimatePointError,
   } = props;
   // hooks
-  const { creteEstimatePoint } = useEstimate(estimateId);
+  const { createEstimatePoint } = useEstimate(estimateId);
   // i18n
   const { t } = useTranslation();
   // states
@@ -119,7 +119,7 @@ export const EstimatePointCreate = observer(function EstimatePointCreate(props: 
                 key: estimatePoints?.length + 1,
                 value: estimateInputValue,
               };
-              await creteEstimatePoint(workspaceSlug, projectId, payload);
+              await createEstimatePoint(workspaceSlug, projectId, payload);
 
               setLoader(false);
               handleEstimatePointError && handleEstimatePointError(estimateInputValue, undefined, "delete");

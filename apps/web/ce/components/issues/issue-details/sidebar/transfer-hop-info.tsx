@@ -5,7 +5,9 @@
  */
 
 import type { TIssue } from "@plane/types";
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function TransferHopInfo({ workItem }: { workItem: TIssue }) {
+
+// Transfer hop info - shows when an issue was transferred between projects/cycles.
+// Currently a placeholder as the backend does not track transfer history yet.
+export function TransferHopInfo({ workItem: _workItem }: { workItem: TIssue }) {
   return <></>;
 }

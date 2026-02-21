@@ -34,7 +34,7 @@ export interface IEstimate extends Omit<IEstimateType, "points"> {
   estimatePointIds: string[] | undefined;
   estimatePointById: (estimatePointId: string) => IEstimatePointType | undefined;
   // actions
-  creteEstimatePoint: (
+  createEstimatePoint: (
     workspaceSlug: string,
     projectId: string,
     payload: Partial<IEstimatePointType>
@@ -82,7 +82,7 @@ export class Estimate implements IEstimate {
       asJson: computed,
       estimatePointIds: computed,
       // actions
-      creteEstimatePoint: action,
+      createEstimatePoint: action,
     });
     this.id = this.data.id;
     this.name = this.data.name;
@@ -142,7 +142,7 @@ export class Estimate implements IEstimate {
    * @param { Partial<IEstimatePointType> } payload
    * @returns { IEstimatePointType | undefined }
    */
-  creteEstimatePoint = async (
+  createEstimatePoint = async (
     workspaceSlug: string,
     projectId: string,
     payload: Partial<IEstimatePointType>

@@ -82,7 +82,7 @@ export class BaseTimeLineStore implements IBaseTimelineStore {
 
   rootStore: RootStore;
 
-  isDependencyEnabled = false;
+  isDependencyEnabled = true;
 
   constructor(_rootStore: RootStore) {
     makeObservable(this, {

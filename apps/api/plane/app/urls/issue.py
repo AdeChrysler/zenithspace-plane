@@ -31,6 +31,9 @@ from plane.app.views import (
     WorkItemDescriptionVersionEndpoint,
     IssueMetaEndpoint,
     IssueDetailIdentifierEndpoint,
+    EpicViewSet,
+    EpicIssuesEndpoint,
+    IssueWorklogViewSet,
 )
 
 urlpatterns = [
@@ -282,5 +285,40 @@ urlpatterns = [
         "workspaces/<str:slug>/work-items/<str:project_identifier>-<str:issue_identifier>/",
         IssueDetailIdentifierEndpoint.as_view(),
         name="issue-detail-identifier",
+    ),
+    ## Epics
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/epics/",
+        EpicViewSet.as_view({"get": "list", "post": "create"}),
+        name="project-epics",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/epics/<uuid:pk>/",
+        EpicViewSet.as_view(
+            {
+                "get": "retrieve",
+                "put": "update",
+                "patch": "partial_update",
+                "delete": "destroy",
+            }
+        ),
+        name="project-epics",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/epics/<uuid:epic_id>/issues/",
+        EpicIssuesEndpoint.as_view(),
+        name="epic-issues",
+    ),
+    ## End Epics
+    ## Worklogs
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/issues/<uuid:issue_id>/worklogs/",
+        IssueWorklogViewSet.as_view({"get": "list", "post": "create"}),
+        name="project-issue-worklogs",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/issues/<uuid:issue_id>/worklogs/<uuid:pk>/",
+        IssueWorklogViewSet.as_view({"patch": "partial_update", "delete": "destroy"}),
+        name="project-issue-worklog-detail",
     ),
 ]

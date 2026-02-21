@@ -5,6 +5,7 @@
  */
 
 import type { RefObject } from "react";
+import { CircleDot } from "lucide-react";
 import type { IGanttBlock } from "@plane/types";
 
 type LeftDependencyDraggableProps = {
@@ -12,6 +13,10 @@ type LeftDependencyDraggableProps = {
   ganttContainerRef: RefObject<HTMLDivElement>;
 };
 
-export function LeftDependencyDraggable(props: LeftDependencyDraggableProps) {
-  return <></>;
+export function LeftDependencyDraggable(_props: LeftDependencyDraggableProps) {
+  return (
+    <div className="absolute -left-2.5 top-1/2 -translate-y-1/2 z-10 opacity-0 group-hover:opacity-100 transition-opacity cursor-crosshair">
+      <CircleDot className="size-3.5 text-primary" />
+    </div>
+  );
 }

@@ -21,9 +21,11 @@ import { CommentCreate } from "@/components/comments/comment-create";
 import { useIssueDetail } from "@/hooks/store/use-issue-detail";
 import { useProject } from "@/hooks/store/use-project";
 import { useUser, useUserPermissions } from "@/hooks/store/user";
+import { useAgentMention } from "@/hooks/use-agent-mention";
 // plane web components
 import { ActivityFilterRoot } from "@/plane-web/components/issues/worklog/activity/filter-root";
 import { IssueActivityWorklogCreateButton } from "@/plane-web/components/issues/worklog/activity/worklog-create-button";
+import { AgentStreamingResponse } from "./agent-response";
 import { IssueActivityCommentRoot } from "./activity-comment-root";
 import { useWorkItemCommentOperations } from "./helper";
 import { ActivitySortRoot } from "./sort-root";
@@ -88,6 +90,31 @@ export const IssueActivity = observer(function IssueActivity(props: TIssueActivi
 
   // helper hooks
   const activityOperations = useWorkItemCommentOperations(workspaceSlug, projectId, issueId);
+  const { agentRequest, showAgentResponse, checkForAgentMention, dismissAgentResponse } = useAgentMention();
+
+  // Wrap createComment to detect agent mentions after posting
+  const wrappedActivityOperations = useMemo(
+    () => ({
+      ...activityOperations,
+      createComment: async (data: Partial<TIssueComment>) => {
+        const comment = await activityOperations.createComment(data);
+        // After comment is posted, check if it mentions the agent
+        if (data.comment_html && issue) {
+          checkForAgentMention(data.comment_html, {
+            workspace_slug: workspaceSlug,
+            project_id: projectId,
+            issue_id: issueId,
+            issue_title: issue.name,
+            issue_description: issue.description_html?.toString(),
+            issue_state: issue.state_id,
+            issue_priority: issue.priority,
+          });
+        }
+        return comment;
+      },
+    }),
+    [activityOperations, checkForAgentMention, workspaceSlug, projectId, issueId, issue]
+  );
 
   const project = getProjectById(projectId);
   const renderCommentCreationBox = useMemo(
@@ -95,12 +122,12 @@ export const IssueActivity = observer(function IssueActivity(props: TIssueActivi
       <CommentCreate
         workspaceSlug={workspaceSlug}
         entityId={issueId}
-        activityOperations={activityOperations}
+        activityOperations={wrappedActivityOperations}
         showToolbarInitially
         projectId={projectId}
       />
     ),
-    [workspaceSlug, issueId, activityOperations, projectId]
+    [workspaceSlug, issueId, wrappedActivityOperations, projectId]
   );
   if (!project) return <></>;
 
@@ -133,13 +160,20 @@ export const IssueActivity = observer(function IssueActivity(props: TIssueActivi
         <div className="min-h-[200px]">
           <div className="space-y-3">
             {!disabled && sortOrder === E_SORT_ORDER.DESC && renderCommentCreationBox}
+            {/* Agent streaming response card */}
+            {showAgentResponse && agentRequest && (
+              <AgentStreamingResponse
+                request={agentRequest}
+                onResponseComplete={dismissAgentResponse}
+              />
+            )}
             <IssueActivityCommentRoot
               projectId={projectId}
               workspaceSlug={workspaceSlug}
               isIntakeIssue={isIntakeIssue}
               issueId={issueId}
               selectedFilters={selectedFilters || defaultActivityFilters}
-              activityOperations={activityOperations}
+              activityOperations={wrappedActivityOperations}
               showAccessSpecifier={!!project.anchor}
               disabled={disabled}
               sortOrder={sortOrder || E_SORT_ORDER.ASC}

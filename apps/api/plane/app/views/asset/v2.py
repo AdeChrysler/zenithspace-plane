@@ -202,6 +202,10 @@ class WorkspaceFileAssetEndpoint(BaseAPIView):
     """This endpoint is used to upload cover images/logos etc for workspace, projects and users."""
 
     def get_entity_id_field(self, entity_type, entity_id):
+        # If entity_id is empty/falsy, don't set any FK field
+        if not entity_id:
+            return {}
+
         # Workspace Logo
         if entity_type == FileAsset.EntityTypeContext.WORKSPACE_LOGO:
             return {"workspace_id": entity_id}

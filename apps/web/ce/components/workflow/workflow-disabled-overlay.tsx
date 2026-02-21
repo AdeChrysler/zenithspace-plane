@@ -5,6 +5,8 @@
  */
 
 import { observer } from "mobx-react";
+import { AlertCircle } from "lucide-react";
+import { cn } from "@plane/utils";
 
 export type TWorkflowDisabledOverlayProps = {
   messageContainerRef: React.RefObject<HTMLDivElement>;
@@ -12,7 +14,16 @@ export type TWorkflowDisabledOverlayProps = {
   shouldOverlayBeVisible: boolean;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const WorkFlowDisabledOverlay = observer(function WorkFlowDisabledOverlay(props: TWorkflowDisabledOverlayProps) {
-  return <></>;
+  const { workflowDisabledSource, shouldOverlayBeVisible } = props;
+  if (!shouldOverlayBeVisible || !workflowDisabledSource) return <></>;
+
+  return (
+    <div className={cn("absolute inset-0 z-10 flex flex-col items-center justify-center rounded-sm bg-danger-subtle/50 backdrop-blur-[1px] transition-opacity duration-200")}>
+      <div className="flex items-center gap-1.5 text-xs font-medium text-danger-primary">
+        <AlertCircle className="size-3.5" />
+        <span>Workflow restriction: Cannot move here</span>
+      </div>
+    </div>
+  );
 });

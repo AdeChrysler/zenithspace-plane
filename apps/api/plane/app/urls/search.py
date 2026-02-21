@@ -6,6 +6,7 @@ from django.urls import path
 
 
 from plane.app.views import GlobalSearchEndpoint, IssueSearchEndpoint, SearchEndpoint
+from plane.app.views.search.duplicate import DuplicateSearchEndpoint
 
 
 urlpatterns = [
@@ -23,5 +24,10 @@ urlpatterns = [
         "workspaces/<str:slug>/entity-search/",
         SearchEndpoint.as_view(),
         name="entity-search",
+    ),
+    path(
+        "workspaces/<str:slug>/search/duplicates/",
+        DuplicateSearchEndpoint.as_view(),
+        name="duplicate-search",
     ),
 ]

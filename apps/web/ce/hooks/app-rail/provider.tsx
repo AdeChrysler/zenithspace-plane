@@ -19,5 +19,5 @@ interface AppRailVisibilityProviderProps {
 export const AppRailVisibilityProvider = observer(function AppRailVisibilityProvider({
   children,
 }: AppRailVisibilityProviderProps) {
-  return <CoreProvider isEnabled={false}>{children}</CoreProvider>;
+  return <CoreProvider isEnabled={true}>{children}</CoreProvider>;
 });

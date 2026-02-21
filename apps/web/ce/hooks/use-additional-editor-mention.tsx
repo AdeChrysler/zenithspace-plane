@@ -4,6 +4,7 @@
  * See the LICENSE file for details.
  */
 
+import { Bot } from "lucide-react";
 import { useCallback, useMemo } from "react";
 // plane editor
 import type { TMentionSection } from "@plane/editor";
@@ -36,9 +37,23 @@ export type TAdditionalParseEditorContentReturnType =
 
 export const useAdditionalEditorMention = (_args: TUseAdditionalEditorMentionArgs) => {
   const updateAdditionalSections = useCallback(
-    (_args: TAdditionalEditorMentionHandlerArgs): TAdditionalEditorMentionHandlerReturnType => ({
-      sections: [],
-    }),
+    (_args: TAdditionalEditorMentionHandlerArgs): TAdditionalEditorMentionHandlerReturnType => {
+      const agentSection: TMentionSection = {
+        key: "ai-agent",
+        title: "AI Agent",
+        items: [
+          {
+            id: "zenith-agent",
+            entity_identifier: "zenith-agent",
+            entity_name: "user_mention",
+            title: "ZenithAgent",
+            subTitle: "AI-powered assistant",
+            icon: <Bot className="size-4 text-primary" />,
+          },
+        ],
+      };
+      return { sections: [agentSection] };
+    },
     []
   );
 
@@ -47,7 +62,10 @@ export const useAdditionalEditorMention = (_args: TUseAdditionalEditorMentionArg
     []
   );
 
-  const editorMentionTypes: TSearchEntities[] = useMemo(() => ["user_mention"], []);
+  const editorMentionTypes: TSearchEntities[] = useMemo(
+    () => ["user_mention", "issue", "project", "cycle", "module", "page"],
+    []
+  );
 
   return {
     updateAdditionalSections,

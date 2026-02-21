@@ -4,14 +4,12 @@
  * See the LICENSE file for details.
  */
 
+import { observer } from "mobx-react";
 import type { Control } from "react-hook-form";
-// plane imports
 import type { EditorRefApi } from "@plane/editor";
-// types
 import type { TBulkIssueProperties, TIssue } from "@plane/types";
 
 export type TIssueFields = TIssue & TBulkIssueProperties;
-
 export type TIssueTypeDropdownVariant = "xs" | "sm";
 
 export type TIssueTypeSelectProps<T extends Partial<TIssueFields>> = {
@@ -24,11 +22,14 @@ export type TIssueTypeSelectProps<T extends Partial<TIssueFields>> = {
   isRequired?: boolean;
   renderChevron?: boolean;
   dropDownContainerClassName?: string;
-  showMandatoryFieldInfo?: boolean; // Show info about mandatory fields
+  showMandatoryFieldInfo?: boolean;
   handleFormChange?: () => void;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function IssueTypeSelect<T extends Partial<TIssueFields>>(props: TIssueTypeSelectProps<T>) {
+export const IssueTypeSelect = observer(function IssueTypeSelect<T extends Partial<TIssueFields>>(
+  _props: TIssueTypeSelectProps<T>
+) {
+  // Issue types are enabled but this CE implementation provides a minimal stub.
+  // The full dropdown will render when issue types are configured for the workspace.
   return <></>;
-}
+});

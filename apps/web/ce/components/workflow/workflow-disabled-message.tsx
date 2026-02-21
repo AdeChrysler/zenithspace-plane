@@ -4,12 +4,20 @@
  * See the LICENSE file for details.
  */
 
-/* eslint-disable @typescript-eslint/no-unused-vars */
+import { AlertCircle } from "lucide-react";
+import { cn } from "@plane/utils";
+
 type Props = {
   parentStateId: string;
   className?: string;
 };
 
 export function WorkFlowDisabledMessage(props: Props) {
-  return <></>;
+  const { className } = props;
+  return (
+    <div className={cn("flex items-center gap-1.5 text-xs text-secondary", className)}>
+      <AlertCircle className="size-3 shrink-0" />
+      <span>Workflow transition not configured for this state.</span>
+    </div>
+  );
 }

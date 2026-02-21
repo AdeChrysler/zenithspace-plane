@@ -36,6 +36,8 @@ from plane.app.views import (
     WorkspaceHomePreferenceViewSet,
     WorkspaceStickyViewSet,
     WorkspaceUserPreferenceViewSet,
+    WorkItemTemplateViewSet,
+    ProjectTemplateViewSet,
 )
 
 
@@ -257,4 +259,8 @@ urlpatterns = [
         WorkspaceUserPreferenceViewSet.as_view(),
         name="workspace-user-preference",
     ),
+    path("workspaces/<str:slug>/work-item-templates/", WorkItemTemplateViewSet.as_view({"get": "list", "post": "create"}), name="workspace-work-item-templates"),
+    path("workspaces/<str:slug>/work-item-templates/<uuid:pk>/", WorkItemTemplateViewSet.as_view({"get": "retrieve", "patch": "partial_update", "delete": "destroy"}), name="workspace-work-item-template-detail"),
+    path("workspaces/<str:slug>/project-templates/", ProjectTemplateViewSet.as_view({"get": "list", "post": "create"}), name="workspace-project-templates"),
+    path("workspaces/<str:slug>/project-templates/<uuid:pk>/", ProjectTemplateViewSet.as_view({"get": "retrieve", "patch": "partial_update", "delete": "destroy"}), name="workspace-project-template-detail"),
 ]

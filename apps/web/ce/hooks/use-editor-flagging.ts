@@ -34,15 +34,15 @@ export type TEditorFlaggingHookProps = {
  */
 export const useEditorFlagging = (_props: TEditorFlaggingHookProps): TEditorFlaggingHookReturnType => ({
   document: {
-    disabled: ["ai", "collaboration-cursor"],
+    disabled: [],
     flagged: [],
   },
   liteText: {
-    disabled: ["ai", "collaboration-cursor"],
+    disabled: [],
     flagged: [],
   },
   richText: {
-    disabled: ["ai", "collaboration-cursor"],
+    disabled: [],
     flagged: [],
   },
 });

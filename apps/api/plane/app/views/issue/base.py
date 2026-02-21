@@ -43,6 +43,7 @@ from plane.app.serializers import (
 from plane.bgtasks.issue_activities_task import issue_activity
 from plane.bgtasks.issue_description_version_task import issue_description_version_task
 from plane.bgtasks.recent_visited_task import recent_visited_task
+from plane.bgtasks.realtime_event_task import publish_realtime_event_task
 from plane.bgtasks.webhook_task import model_activity
 from plane.db.models import (
     CycleIssue,
@@ -473,6 +474,13 @@ class IssueViewSet(BaseViewSet):
                 user_id=request.user.id,
                 is_creating=True,
             )
+            # Publish realtime event for issue creation
+            publish_realtime_event_task.delay(
+                event_type="issue_created",
+                workspace_slug=slug,
+                project_id=str(project_id),
+                data={"issue_id": str(serializer.data["id"])},
+            )
             return Response(issue, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -697,6 +705,13 @@ class IssueViewSet(BaseViewSet):
                     issue_id=str(serializer.data.get("id", None)),
                     user_id=request.user.id,
                 )
+            # Publish realtime event for issue update
+            publish_realtime_event_task.delay(
+                event_type="issue_updated",
+                workspace_slug=slug,
+                project_id=str(project_id),
+                data={"issue_id": str(pk)},
+            )
             return Response(status=status.HTTP_204_NO_CONTENT)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -723,6 +738,13 @@ class IssueViewSet(BaseViewSet):
             notification=True,
             origin=base_host(request=request, is_app=True),
             subscriber=False,
+        )
+        # Publish realtime event for issue deletion
+        publish_realtime_event_task.delay(
+            event_type="issue_deleted",
+            workspace_slug=slug,
+            project_id=str(project_id),
+            data={"issue_id": str(pk)},
         )
         return Response(status=status.HTTP_204_NO_CONTENT)
 

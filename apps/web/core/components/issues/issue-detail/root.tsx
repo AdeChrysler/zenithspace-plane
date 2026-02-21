@@ -22,6 +22,7 @@ import { useIssueDetail } from "@/hooks/store/use-issue-detail";
 import { useIssues } from "@/hooks/store/use-issues";
 import { useUserPermissions } from "@/hooks/store/user";
 import { useAppRouter } from "@/hooks/use-app-router";
+import { useRealtimeIssueUpdates } from "@/hooks/use-realtime-issue-updates";
 // local components
 import { IssuePeekOverview } from "../peek-overview";
 import { IssueMainContent } from "./main-content";
@@ -81,6 +82,9 @@ export const IssueDetailRoot = observer(function IssueDetailRoot(props: TIssueDe
   } = useIssues(EIssuesStoreType.ARCHIVED);
   const { allowPermissions } = useUserPermissions();
   const { issueDetailSidebarCollapsed } = useAppTheme();
+
+  // Subscribe to real-time updates for this issue
+  useRealtimeIssueUpdates(workspaceSlug, projectId, issueId);
 
   const issueOperations: TIssueOperations = useMemo(
     () => ({

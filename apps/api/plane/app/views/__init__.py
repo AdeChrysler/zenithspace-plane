@@ -154,6 +154,8 @@ from .issue.subscriber import IssueSubscriberViewSet
 
 from .issue.version import IssueVersionEndpoint, WorkItemDescriptionVersionEndpoint
 
+from .issue.epic import EpicViewSet, EpicIssuesEndpoint
+
 from .module.base import (
     ModuleViewSet,
     ModuleLinkViewSet,
@@ -238,3 +240,10 @@ from .notification.base import MarkAllReadNotificationViewSet
 from .user.base import AccountEndpoint, ProfileEndpoint, UserSessionEndpoint
 
 from .timezone.base import TimezoneEndpoint
+
+from .automation.base import AutomationViewSet
+
+from .issue.worklog import IssueWorklogViewSet
+from .workspace.template import WorkItemTemplateViewSet, ProjectTemplateViewSet
+
+from .issue_type.base import IssueTypeViewSet

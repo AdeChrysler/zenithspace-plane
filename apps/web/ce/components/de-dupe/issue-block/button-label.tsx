@@ -4,7 +4,8 @@
  * See the LICENSE file for details.
  */
 
-import type { FC } from "react";
+import React from "react";
+import { Layers } from "lucide-react";
 
 type TDeDupeIssueButtonLabelProps = {
   isOpen: boolean;
@@ -12,6 +13,11 @@ type TDeDupeIssueButtonLabelProps = {
 };
 
 export function DeDupeIssueButtonLabel(props: TDeDupeIssueButtonLabelProps) {
-  const { isOpen, buttonLabel } = props;
-  return <></>;
+  const { buttonLabel } = props;
+  return (
+    <span className="flex items-center gap-1.5">
+      <Layers className="h-3 w-3 flex-shrink-0" />
+      <span className="whitespace-nowrap">{buttonLabel}</span>
+    </span>
+  );
 }

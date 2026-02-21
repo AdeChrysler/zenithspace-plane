@@ -22,6 +22,7 @@ from plane.app.permissions import allow_permission, ROLE
 from plane.db.models import IssueComment, ProjectMember, CommentReaction, Project, Issue
 from plane.bgtasks.issue_activities_task import issue_activity
 from plane.utils.host import base_host
+from plane.bgtasks.realtime_event_task import publish_realtime_event_task
 from plane.bgtasks.webhook_task import model_activity
 
 
@@ -103,6 +104,16 @@ class IssueCommentViewSet(BaseViewSet):
                 slug=slug,
                 origin=base_host(request=request, is_app=True),
             )
+            # Publish realtime event for comment creation
+            publish_realtime_event_task.delay(
+                event_type="comment_created",
+                workspace_slug=slug,
+                project_id=str(project_id),
+                data={
+                    "comment_id": str(serializer.data["id"]),
+                    "issue_id": str(issue_id),
+                },
+            )
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -138,6 +149,16 @@ class IssueCommentViewSet(BaseViewSet):
                 slug=slug,
                 origin=base_host(request=request, is_app=True),
             )
+            # Publish realtime event for comment update
+            publish_realtime_event_task.delay(
+                event_type="comment_updated",
+                workspace_slug=slug,
+                project_id=str(project_id),
+                data={
+                    "comment_id": str(pk),
+                    "issue_id": str(issue_id),
+                },
+            )
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -156,6 +177,16 @@ class IssueCommentViewSet(BaseViewSet):
             epoch=int(timezone.now().timestamp()),
             notification=True,
             origin=base_host(request=request, is_app=True),
+        )
+        # Publish realtime event for comment deletion
+        publish_realtime_event_task.delay(
+            event_type="comment_deleted",
+            workspace_slug=slug,
+            project_id=str(project_id),
+            data={
+                "comment_id": str(pk),
+                "issue_id": str(issue_id),
+            },
         )
         return Response(status=status.HTTP_204_NO_CONTENT)
 

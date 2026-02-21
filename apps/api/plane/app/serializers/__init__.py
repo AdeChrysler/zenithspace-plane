@@ -133,3 +133,10 @@ from .draft import (
     DraftIssueSerializer,
     DraftIssueDetailSerializer,
 )
+
+from .automation import AutomationSerializer
+
+from .worklog import IssueWorklogSerializer
+from .template import WorkItemTemplateSerializer, ProjectTemplateSerializer
+
+from .issue_type import IssueTypeSerializer, IssueTypeLiteSerializer

@@ -64,39 +64,31 @@ export const CreateProjectForm = observer(function CreateProjectForm(props: TCre
     // Upper case identifier
     formData.identifier = formData.identifier?.toUpperCase();
     const coverImage = formData.cover_image_url;
-    let uploadedAssetUrl: string | null = null;
+    const isStaticImage = coverImage ? getCoverImageType(coverImage) === "local_static" : false;
 
-    if (coverImage) {
-      const imageType = getCoverImageType(coverImage);
-
-      if (imageType === "local_static") {
-        try {
-          uploadedAssetUrl = await uploadCoverImage(coverImage, {
-            workspaceSlug: workspaceSlug.toString(),
-            entityIdentifier: "",
-            entityType: EFileAssetType.PROJECT_COVER,
-            isUserAsset: false,
-          });
-        } catch (error) {
-          console.error("Error uploading cover image:", error);
-          setToast({
-            type: TOAST_TYPE.ERROR,
-            title: t("toast.error"),
-            message: error instanceof Error ? error.message : "Failed to upload cover image",
-          });
-          return Promise.reject(error);
-        }
-      } else {
-        formData.cover_image = coverImage;
-        formData.cover_image_asset = null;
-      }
+    // For non-static images (e.g. Unsplash URLs), pass directly in formData
+    if (coverImage && !isStaticImage) {
+      formData.cover_image = coverImage;
+      formData.cover_image_asset = null;
     }
 
     return createProject(workspaceSlug.toString(), formData)
       .then(async (res) => {
-        if (uploadedAssetUrl) {
-          await updateCoverImageStatus(res.id, uploadedAssetUrl);
-          await updateProject(workspaceSlug.toString(), res.id, { cover_image_url: uploadedAssetUrl });
+        // Upload static cover image AFTER project creation when we have the project ID
+        if (coverImage && isStaticImage) {
+          try {
+            const uploadedAssetUrl = await uploadCoverImage(coverImage, {
+              workspaceSlug: workspaceSlug.toString(),
+              entityIdentifier: res.id,
+              entityType: EFileAssetType.PROJECT_COVER,
+              isUserAsset: false,
+            });
+            await updateCoverImageStatus(res.id, uploadedAssetUrl);
+            await updateProject(workspaceSlug.toString(), res.id, { cover_image_url: uploadedAssetUrl });
+          } catch (error) {
+            console.error("Error uploading cover image:", error);
+            // Don't block project creation for cover image upload failure
+          }
         } else if (coverImage && coverImage.startsWith("http")) {
           await updateCoverImageStatus(res.id, coverImage);
           await updateProject(workspaceSlug.toString(), res.id, { cover_image_url: coverImage });

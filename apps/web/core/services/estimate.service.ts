@@ -106,6 +106,24 @@ export class EstimateService extends APIService {
       throw error;
     }
   }
+
+  async deleteEstimatePoint(
+    workspaceSlug: string,
+    projectId: string,
+    estimateId: string,
+    estimatePointId: string,
+    newEstimatePointId?: string | undefined
+  ): Promise<void> {
+    try {
+      const params = newEstimatePointId ? { new_estimate_id: newEstimatePointId } : {};
+      await this.delete(
+        `/api/workspaces/${workspaceSlug}/projects/${projectId}/estimates/${estimateId}/estimate-points/${estimatePointId}/`,
+        params
+      );
+    } catch (error) {
+      throw error;
+    }
+  }
 }
 const estimateService = new EstimateService();
 

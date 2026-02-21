@@ -264,7 +264,7 @@ export const AIAgentSettings = observer(function AIAgentSettings() {
               name="oauth_token"
               type="password"
               value={tokenDirty ? oauthToken : oauthTokenMasked}
-              onChange={(e) => {
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                 if (!tokenDirty) setTokenDirty(true);
                 setOauthToken(e.target.value);
               }}

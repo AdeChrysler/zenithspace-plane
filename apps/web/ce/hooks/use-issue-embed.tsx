@@ -4,12 +4,9 @@
  * See the LICENSE file for details.
  */
 
-// editor
 import type { TEmbedConfig } from "@plane/editor";
-// plane types
 import type { TSearchEntityRequestPayload, TSearchResponse } from "@plane/types";
-// plane web components
-import { IssueEmbedUpgradeCard } from "@/plane-web/components/pages";
+import { IssueEmbedCard } from "@/plane-web/components/pages";
 
 export type TIssueEmbedHookProps = {
   fetchEmbedSuggestions?: (payload: TSearchEntityRequestPayload) => Promise<TSearchResponse>;
@@ -17,9 +14,24 @@ export type TIssueEmbedHookProps = {
   workspaceSlug?: string;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const useIssueEmbed = (props: TIssueEmbedHookProps) => {
-  const widgetCallback = () => <IssueEmbedUpgradeCard />;
+  const { workspaceSlug } = props;
+
+  const widgetCallback = ({
+    issueId,
+    projectId,
+    workspaceSlug: wsSlug,
+  }: {
+    issueId: string;
+    projectId: string | undefined;
+    workspaceSlug: string | undefined;
+  }) => (
+    <IssueEmbedCard
+      issueId={issueId}
+      projectId={projectId}
+      workspaceSlug={wsSlug ?? workspaceSlug}
+    />
+  );
 
   const issueEmbedProps: TEmbedConfig["issue"] = {
     widgetCallback,
