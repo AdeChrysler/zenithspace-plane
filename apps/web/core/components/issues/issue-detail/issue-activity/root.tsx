@@ -99,7 +99,9 @@ export const IssueActivity = observer(function IssueActivity(props: TIssueActivi
     dismissAgentResponse,
   } = useAgentMention();
 
-  // Persist agent response as a real comment, then dismiss the streaming UI
+  // Persist agent response as a real comment, then dismiss the streaming UI.
+  // The streaming component already delays calling this by 3s so the user sees
+  // the completed plan animation before we swap to a persisted comment.
   const handleAgentResponseComplete = useCallback(
     async (responseText: string) => {
       if (!responseText.trim()) {
@@ -113,6 +115,9 @@ export const IssueActivity = observer(function IssueActivity(props: TIssueActivi
         await activityOperations.createComment({
           comment_html: agentCommentHtml,
         });
+        // Small delay to let MobX propagate the new comment to the activity list
+        // before we dismiss the streaming UI — prevents a visual gap
+        await new Promise((r) => setTimeout(r, 500));
       } catch (err) {
         console.error("Failed to persist agent response as comment:", err);
       }

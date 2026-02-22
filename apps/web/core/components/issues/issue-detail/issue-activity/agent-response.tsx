@@ -36,8 +36,15 @@ const DEFAULT_PLAN_STEPS: PlanStep[] = [
 
 // --- Agent Calling Badge (used by activity-comment-root) ---
 export function AgentCallingBadge() {
+  const badgeRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Scroll badge into view when it appears
+    badgeRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, []);
+
   return (
-    <div className="relative flex gap-3 py-1">
+    <div ref={badgeRef} className="relative flex gap-3 py-1">
       {/* Timeline connector */}
       <div className="absolute left-[13px] top-0 bottom-0 w-px bg-layer-3" aria-hidden />
       <div className="w-7 flex-shrink-0" />
@@ -134,6 +141,16 @@ export const AgentStreamingResponse = observer(function AgentStreamingResponse(p
   const responseRef = useRef("");
   const abortRef = useRef<AbortController | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  // Track plan index via ref to avoid stale closure in streaming callback
+  const currentPlanIndexRef = useRef(-1);
+
+  // Scroll the whole card into view
+  const scrollCardIntoView = useCallback(() => {
+    requestAnimationFrame(() => {
+      cardRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+  }, []);
 
   // Sync session state with parent
   const updateSessionState = useCallback(
@@ -156,6 +173,7 @@ export const AgentStreamingResponse = observer(function AgentStreamingResponse(p
         return next;
       });
       setCurrentPlanIndex(toIndex);
+      currentPlanIndexRef.current = toIndex;
       setCompletedCount(toIndex);
     },
     []
@@ -176,6 +194,7 @@ export const AgentStreamingResponse = observer(function AgentStreamingResponse(p
     updateSessionState("calling");
     setPlanSteps(DEFAULT_PLAN_STEPS.map((s) => ({ ...s })));
     setCurrentPlanIndex(-1);
+    currentPlanIndexRef.current = -1;
     setEphemeralThought("");
     setResponse("");
     setError(null);
@@ -197,8 +216,8 @@ export const AgentStreamingResponse = observer(function AgentStreamingResponse(p
               advancePlan(0);
             }
             setEphemeralThought(chunk.content);
-            // Advance plan steps based on thinking progress
-            if (hasReceivedThinking && currentPlanIndex < 1) {
+            // Advance plan steps based on thinking progress (use ref for current value)
+            if (hasReceivedThinking && currentPlanIndexRef.current < 1) {
               advancePlan(1);
             }
             break;
@@ -211,6 +230,7 @@ export const AgentStreamingResponse = observer(function AgentStreamingResponse(p
                 status: i === 0 ? "active" : "pending",
               })));
               setCurrentPlanIndex(0);
+              currentPlanIndexRef.current = 0;
             } catch {
               // Ignore parse errors
             }
@@ -224,7 +244,7 @@ export const AgentStreamingResponse = observer(function AgentStreamingResponse(p
             }
             responseRef.current += chunk.content;
             setResponse(responseRef.current);
-            // Auto-scroll
+            // Auto-scroll inside the response area
             if (containerRef.current) {
               containerRef.current.scrollTop = containerRef.current.scrollHeight;
             }
@@ -238,8 +258,13 @@ export const AgentStreamingResponse = observer(function AgentStreamingResponse(p
         completePlan();
         updateSessionState("completed");
         setEphemeralThought("");
-        setIsPlanCollapsed(true);
-        onResponseComplete?.(responseRef.current);
+        // Show the completed state for 2 seconds before collapsing and persisting
+        setTimeout(() => {
+          setIsPlanCollapsed(true);
+        }, 1500);
+        setTimeout(() => {
+          onResponseComplete?.(responseRef.current);
+        }, 3000);
       },
       (err) => {
         setError(err);
@@ -247,16 +272,22 @@ export const AgentStreamingResponse = observer(function AgentStreamingResponse(p
       },
       controller.signal
     );
-  }, [request, updateSessionState, advancePlan, completePlan, onResponseComplete, currentPlanIndex]);
+  }, [request, updateSessionState, advancePlan, completePlan, onResponseComplete]);
 
-  // Start streaming on mount
+  // Start streaming on mount + scroll into view
   useEffect(() => {
     startStream();
+    scrollCardIntoView();
     return () => {
       abortRef.current?.abort();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Scroll into view whenever session state changes (new activity)
+  useEffect(() => {
+    scrollCardIntoView();
+  }, [sessionState, scrollCardIntoView]);
 
   const handleCopy = async () => {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
@@ -289,7 +320,7 @@ export const AgentStreamingResponse = observer(function AgentStreamingResponse(p
   }, [sessionState]);
 
   return (
-    <div className="relative flex gap-3 py-2">
+    <div ref={cardRef} className="relative flex gap-3 py-2">
       {/* Timeline line */}
       <div className="absolute left-[13px] top-0 bottom-0 w-px bg-layer-3" aria-hidden />
       {/* Timeline dot - bot icon */}
