@@ -9,6 +9,7 @@ import { observer } from "mobx-react";
 import type { E_SORT_ORDER, TActivityFilters, EActivityFilterType } from "@plane/constants";
 import { BASE_ACTIVITY_FILTER_TYPES, filterActivityOnSelectedFilters } from "@plane/constants";
 import type { TCommentsOperations } from "@plane/types";
+import { calculateTimeAgo } from "@plane/utils";
 // components
 import { CommentCard } from "@/components/comments/card/root";
 // hooks
@@ -18,6 +19,7 @@ import { IssueAdditionalPropertiesActivity } from "@/plane-web/components/issues
 import { IssueActivityWorklog } from "@/plane-web/components/issues/worklog/activity/root";
 // local imports
 import { IssueActivityItem } from "./activity/activity-list";
+import { AgentCallingBadge, AgentCommentBlock } from "./agent-response";
 import { IssueActivityLoader } from "./loader";
 
 type TIssueActivityCommentRoot = {
@@ -30,6 +32,7 @@ type TIssueActivityCommentRoot = {
   showAccessSpecifier?: boolean;
   disabled?: boolean;
   sortOrder: E_SORT_ORDER;
+  agentCallingCommentId?: string | null;
 };
 
 export const IssueActivityCommentRoot = observer(function IssueActivityCommentRoot(props: TIssueActivityCommentRoot) {
@@ -43,6 +46,7 @@ export const IssueActivityCommentRoot = observer(function IssueActivityCommentRo
     projectId,
     disabled,
     sortOrder,
+    agentCallingCommentId,
   } = props;
   // store hooks
   const {
@@ -62,44 +66,86 @@ export const IssueActivityCommentRoot = observer(function IssueActivityCommentRo
     <div>
       {filteredActivityAndComments.map((activityComment, index) => {
         const comment = getCommentById(activityComment.id);
-        return activityComment.activity_type === "COMMENT" ? (
-          <CommentCard
-            key={activityComment.id}
-            workspaceSlug={workspaceSlug}
-            entityId={issueId}
-            comment={comment}
-            activityOperations={activityOperations}
-            ends={index === 0 ? "top" : index === filteredActivityAndComments.length - 1 ? "bottom" : undefined}
-            showAccessSpecifier={!!showAccessSpecifier}
-            showCopyLinkOption={!isIntakeIssue}
-            disabled={disabled}
-            projectId={projectId}
-            enableReplies
-          />
-        ) : BASE_ACTIVITY_FILTER_TYPES.includes(activityComment.activity_type as EActivityFilterType) ? (
-          <IssueActivityItem
-            key={activityComment.id}
-            activityId={activityComment.id}
-            ends={index === 0 ? "top" : index === filteredActivityAndComments.length - 1 ? "bottom" : undefined}
-          />
-        ) : activityComment.activity_type === "ISSUE_ADDITIONAL_PROPERTIES_ACTIVITY" ? (
-          <IssueAdditionalPropertiesActivity
-            key={activityComment.id}
-            activityId={activityComment.id}
-            ends={index === 0 ? "top" : index === filteredActivityAndComments.length - 1 ? "bottom" : undefined}
-          />
-        ) : activityComment.activity_type === "WORKLOG" ? (
-          <IssueActivityWorklog
-            key={activityComment.id}
-            workspaceSlug={workspaceSlug}
-            projectId={projectId}
-            issueId={issueId}
-            activityComment={activityComment}
-            ends={index === 0 ? "top" : index === filteredActivityAndComments.length - 1 ? "bottom" : undefined}
-          />
-        ) : (
-          <></>
-        );
+        const ends = index === 0 ? "top" : index === filteredActivityAndComments.length - 1 ? "bottom" : undefined;
+
+        // Check if this is a comment
+        if (activityComment.activity_type === "COMMENT") {
+          // Check if this is an agent comment (persisted)
+          const isAgentComment = comment?.comment_html?.includes('data-agent="zenith-agent"');
+
+          if (isAgentComment && comment) {
+            // Extract plain text from agent comment HTML
+            const tempDiv = typeof document !== "undefined" ? document.createElement("div") : null;
+            let plainText = comment.comment_html || "";
+            if (tempDiv) {
+              tempDiv.innerHTML = plainText;
+              plainText = tempDiv.textContent || tempDiv.innerText || "";
+            }
+
+            return (
+              <AgentCommentBlock
+                key={activityComment.id}
+                content={plainText}
+                timestamp={calculateTimeAgo(comment.created_at)}
+                ends={ends}
+              />
+            );
+          }
+
+          return (
+            <div key={activityComment.id}>
+              <CommentCard
+                workspaceSlug={workspaceSlug}
+                entityId={issueId}
+                comment={comment}
+                activityOperations={activityOperations}
+                ends={ends}
+                showAccessSpecifier={!!showAccessSpecifier}
+                showCopyLinkOption={!isIntakeIssue}
+                disabled={disabled}
+                projectId={projectId}
+                enableReplies
+              />
+              {/* Show calling badge after the comment that triggered the agent */}
+              {agentCallingCommentId && activityComment.id === agentCallingCommentId && <AgentCallingBadge />}
+            </div>
+          );
+        }
+
+        if (BASE_ACTIVITY_FILTER_TYPES.includes(activityComment.activity_type as EActivityFilterType)) {
+          return (
+            <IssueActivityItem
+              key={activityComment.id}
+              activityId={activityComment.id}
+              ends={ends}
+            />
+          );
+        }
+
+        if (activityComment.activity_type === "ISSUE_ADDITIONAL_PROPERTIES_ACTIVITY") {
+          return (
+            <IssueAdditionalPropertiesActivity
+              key={activityComment.id}
+              activityId={activityComment.id}
+              ends={ends}
+            />
+          );
+        }
+
+        if (activityComment.activity_type === "WORKLOG") {
+          return (
+            <IssueActivityWorklog
+              key={activityComment.id}
+              workspaceSlug={workspaceSlug}
+              projectId={projectId}
+              issueId={issueId}
+              activityComment={activityComment}
+              ends={ends}
+            />
+          );
+        }
+
+        return <span key={activityComment.id} />;
       })}
     </div>
   );

@@ -4,7 +4,7 @@
  * See the LICENSE file for details.
  */
 
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import uniq from "lodash-es/uniq";
 import { observer } from "mobx-react";
 // plane package imports
@@ -90,7 +90,37 @@ export const IssueActivity = observer(function IssueActivity(props: TIssueActivi
 
   // helper hooks
   const activityOperations = useWorkItemCommentOperations(workspaceSlug, projectId, issueId);
-  const { agentRequest, showAgentResponse, checkForAgentMention, dismissAgentResponse } = useAgentMention();
+  const {
+    agentRequest,
+    showAgentResponse,
+    agentCallingCommentId,
+    setAgentSessionState,
+    checkForAgentMention,
+    dismissAgentResponse,
+  } = useAgentMention();
+
+  // Persist agent response as a real comment, then dismiss the streaming UI
+  const handleAgentResponseComplete = useCallback(
+    async (responseText: string) => {
+      if (!responseText.trim()) {
+        dismissAgentResponse();
+        return;
+      }
+
+      try {
+        // Wrap in agent-identifiable HTML
+        const agentCommentHtml = `<div data-agent="zenith-agent">${responseText.replace(/\n/g, "<br/>")}</div>`;
+        await activityOperations.createComment({
+          comment_html: agentCommentHtml,
+        });
+      } catch (err) {
+        console.error("Failed to persist agent response as comment:", err);
+      }
+
+      dismissAgentResponse();
+    },
+    [activityOperations, dismissAgentResponse]
+  );
 
   // Wrap createComment to detect agent mentions after posting
   const wrappedActivityOperations = useMemo(
@@ -100,15 +130,19 @@ export const IssueActivity = observer(function IssueActivity(props: TIssueActivi
         const comment = await activityOperations.createComment(data);
         // After comment is posted, check if it mentions the agent
         if (data.comment_html && issue) {
-          checkForAgentMention(data.comment_html, {
-            workspace_slug: workspaceSlug,
-            project_id: projectId,
-            issue_id: issueId,
-            issue_title: issue.name,
-            issue_description: issue.description_html?.toString(),
-            issue_state: issue.state_id,
-            issue_priority: issue.priority,
-          });
+          checkForAgentMention(
+            data.comment_html,
+            {
+              workspace_slug: workspaceSlug,
+              project_id: projectId,
+              issue_id: issueId,
+              issue_title: issue.name,
+              issue_description: issue.description_html?.toString(),
+              issue_state: issue.state_id,
+              issue_priority: issue.priority,
+            },
+            comment?.id
+          );
         }
         return comment;
       },
@@ -160,13 +194,6 @@ export const IssueActivity = observer(function IssueActivity(props: TIssueActivi
         <div className="min-h-[200px]">
           <div className="space-y-3">
             {!disabled && sortOrder === E_SORT_ORDER.DESC && renderCommentCreationBox}
-            {/* Agent streaming response card */}
-            {showAgentResponse && agentRequest && (
-              <AgentStreamingResponse
-                request={agentRequest}
-                onResponseComplete={dismissAgentResponse}
-              />
-            )}
             <IssueActivityCommentRoot
               projectId={projectId}
               workspaceSlug={workspaceSlug}
@@ -177,7 +204,16 @@ export const IssueActivity = observer(function IssueActivity(props: TIssueActivi
               showAccessSpecifier={!!project.anchor}
               disabled={disabled}
               sortOrder={sortOrder || E_SORT_ORDER.ASC}
+              agentCallingCommentId={agentCallingCommentId}
             />
+            {/* Agent streaming response card - positioned after activity list */}
+            {showAgentResponse && agentRequest && (
+              <AgentStreamingResponse
+                request={agentRequest}
+                onResponseComplete={(resp) => void handleAgentResponseComplete(resp)}
+                onSessionStateChange={setAgentSessionState}
+              />
+            )}
             {!disabled && sortOrder === E_SORT_ORDER.ASC && renderCommentCreationBox}
           </div>
         </div>

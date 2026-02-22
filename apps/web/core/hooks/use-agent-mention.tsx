@@ -9,12 +9,17 @@ import type { TAgentRequest } from "@/services/agent.service";
 
 const AGENT_MENTION_ID = "zenith-agent";
 
+export type TAgentSessionState = "calling" | "working" | "responding" | "completed";
+
 /**
  * Detects if a comment mentions the AI agent and provides state for the streaming response.
+ * Tracks the triggering comment ID and agent session state.
  */
 export const useAgentMention = () => {
   const [agentRequest, setAgentRequest] = useState<TAgentRequest | null>(null);
   const [showAgentResponse, setShowAgentResponse] = useState(false);
+  const [agentCallingCommentId, setAgentCallingCommentId] = useState<string | null>(null);
+  const [agentSessionState, setAgentSessionState] = useState<TAgentSessionState>("calling");
 
   const checkForAgentMention = useCallback(
     (
@@ -27,7 +32,8 @@ export const useAgentMention = () => {
         issue_description?: string;
         issue_state?: string;
         issue_priority?: string;
-      }
+      },
+      commentId?: string
     ) => {
       // Check if the comment mentions the AI agent
       const hasAgentMention =
@@ -57,6 +63,8 @@ export const useAgentMention = () => {
 
         setAgentRequest(request);
         setShowAgentResponse(true);
+        setAgentCallingCommentId(commentId ?? null);
+        setAgentSessionState("calling");
         return true;
       }
 
@@ -68,11 +76,16 @@ export const useAgentMention = () => {
   const dismissAgentResponse = useCallback(() => {
     setShowAgentResponse(false);
     setAgentRequest(null);
+    setAgentCallingCommentId(null);
+    setAgentSessionState("calling");
   }, []);
 
   return {
     agentRequest,
     showAgentResponse,
+    agentCallingCommentId,
+    agentSessionState,
+    setAgentSessionState,
     checkForAgentMention,
     dismissAgentResponse,
   };

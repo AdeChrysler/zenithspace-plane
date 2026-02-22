@@ -25,7 +25,7 @@ export type TAgentRequest = {
 };
 
 export type TAgentStreamChunk = {
-  type: "text" | "thinking" | "done" | "error";
+  type: "text" | "thinking" | "plan" | "done" | "error";
   content: string;
 };
 
