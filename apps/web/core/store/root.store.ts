@@ -4,6 +4,7 @@
  * See the LICENSE file for details.
  */
 
+/* eslint-disable import/no-unresolved, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument */
 import { enableStaticRendering } from "mobx-react";
 // plane imports
 import { FALLBACK_LANGUAGE, LANGUAGE_STORAGE_KEY } from "@plane/i18n";
@@ -21,6 +22,8 @@ import type { IStateStore } from "@/plane-web/store/state.store";
 import { StateStore } from "@/plane-web/store/state.store";
 import { WorkspaceRootStore } from "@/plane-web/store/workspace";
 // stores
+import type { IAgentStore } from "./agent.store";
+import { AgentStore } from "./agent.store";
 import type { ICycleStore } from "./cycle.store";
 import { CycleStore } from "./cycle.store";
 import type { ICycleFilterStore } from "./cycle_filter.store";
@@ -101,6 +104,7 @@ export class CoreRootStore {
   editorAssetStore: IEditorAssetStore;
   workItemFilters: IWorkItemFilterStore;
   powerK: IPowerKStore;
+  agent: IAgentStore;
 
   constructor() {
     this.router = new RouterStore();
@@ -132,6 +136,7 @@ export class CoreRootStore {
     this.analytics = new AnalyticsStore();
     this.workItemFilters = new WorkItemFilterStore();
     this.powerK = new PowerKStore();
+    this.agent = new AgentStore();
   }
 
   resetOnSignOut() {
@@ -165,5 +170,6 @@ export class CoreRootStore {
     this.editorAssetStore = new EditorAssetStore();
     this.workItemFilters = new WorkItemFilterStore();
     this.powerK = new PowerKStore();
+    this.agent = new AgentStore();
   }
 }

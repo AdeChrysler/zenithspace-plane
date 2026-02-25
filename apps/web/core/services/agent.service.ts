@@ -4,11 +4,16 @@
  * See the LICENSE file for details.
  */
 
+/* eslint-disable @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access, import/no-unresolved */
 import { API_BASE_URL } from "@plane/constants";
+// types
+import type { TAgentProvider, TAgentSkill, TAgentSession, TAgentInvokeRequest } from "@/store/agent.store";
+// services
 import { APIService } from "@/services/api.service";
 
-const ORCHESTRATOR_URL = "https://orchestrator.zenova.id";
+// --- Legacy type aliases (kept for backward compatibility until Tasks 16/18/20 migrate consumers) ---
 
+/** @deprecated Use TAgentInvokeRequest from @/store/agent.store instead. Will be removed in Task 20. */
 export type TAgentRequest = {
   workspace_slug: string;
   project_id: string;
@@ -24,6 +29,7 @@ export type TAgentRequest = {
   };
 };
 
+/** @deprecated Use { type: string; content: string } from @/store/agent.store instead. Will be removed in Task 20. */
 export type TAgentStreamChunk = {
   type: "text" | "thinking" | "plan" | "done" | "error";
   content: string;
@@ -35,8 +41,65 @@ export class AgentService extends APIService {
   }
 
   /**
-   * Send a message to the AI agent and get a streaming response.
-   * Uses fetch with ReadableStream for server-sent events.
+   * Fetch available agent providers for a workspace.
+   */
+  async fetchProviders(workspaceSlug: string): Promise<TAgentProvider[]> {
+    return this.get(`/api/agent/workspaces/${workspaceSlug}/providers/`)
+      .then((response) => response?.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  /**
+   * Fetch available agent skills for a workspace, optionally filtered by project.
+   */
+  async fetchSkills(workspaceSlug: string, projectId?: string): Promise<TAgentSkill[]> {
+    const params = projectId ? `?project_id=${projectId}` : "";
+    return this.get(`/api/agent/workspaces/${workspaceSlug}/skills/${params}`)
+      .then((response) => response?.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  /**
+   * Invoke an agent session for a workspace.
+   */
+  async invokeAgent(workspaceSlug: string, payload: TAgentInvokeRequest): Promise<TAgentSession> {
+    return this.post(`/api/agent/workspaces/${workspaceSlug}/invoke/`, payload)
+      .then((response) => response?.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  /**
+   * Get session details by ID.
+   */
+  async getSession(workspaceSlug: string, sessionId: string): Promise<TAgentSession> {
+    return this.get(`/api/agent/workspaces/${workspaceSlug}/sessions/${sessionId}/`)
+      .then((response) => response?.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  /**
+   * Cancel an active agent session.
+   */
+  async cancelSession(workspaceSlug: string, sessionId: string): Promise<void> {
+    return this.post(`/api/agent/workspaces/${workspaceSlug}/sessions/${sessionId}/cancel/`)
+      .then((response) => response?.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  /**
+   * @deprecated Legacy streaming method kept for backward compatibility.
+   * Uses the old orchestrator-style POST interface. Will be removed in Task 20.
+   * New code should use the store's streamSession which calls streamSession below.
    */
   async streamAgentResponse(
     request: TAgentRequest,
@@ -46,17 +109,55 @@ export class AgentService extends APIService {
     signal?: AbortSignal
   ): Promise<void> {
     try {
-      const response = await fetch(`${ORCHESTRATOR_URL}/api/agent/stream`, {
-        method: "POST",
+      // Invoke via the new backend endpoint, then stream the session
+      const session = await this.invokeAgent(request.workspace_slug, {
+        provider_slug: "claude-code",
+        project_id: request.project_id,
+        issue_id: request.issue_id,
+        comment_text: request.comment_text,
+      });
+
+      await this.streamSession(
+        request.workspace_slug,
+        session.id,
+        (chunk) => onChunk(chunk as TAgentStreamChunk),
+        onComplete,
+        onError,
+        signal
+      );
+    } catch (e: unknown) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
+      const errorMessage = e instanceof Error ? e.message : "Agent request failed";
+      onError(errorMessage);
+    }
+  }
+
+  /**
+   * Stream an agent session via SSE using fetch + ReadableStream.
+   * Points to the Django backend SSE endpoint.
+   */
+  async streamSession(
+    workspaceSlug: string,
+    sessionId: string,
+    onChunk: (chunk: { type: string; content: string }) => void,
+    onComplete: () => void,
+    onError: (error: string) => void,
+    signal?: AbortSignal
+  ): Promise<void> {
+    try {
+      const url = `${this.baseURL}/api/agent/workspaces/${workspaceSlug}/sessions/${sessionId}/stream/`;
+
+      const response = await fetch(url, {
+        method: "GET",
         headers: {
-          "Content-Type": "application/json",
+          Accept: "text/event-stream",
         },
-        body: JSON.stringify(request),
+        credentials: "include",
         signal,
       });
 
       if (!response.ok) {
-        onError(`Agent request failed: ${response.statusText}`);
+        onError(`Agent stream request failed: ${response.statusText}`);
         return;
       }
 
@@ -83,7 +184,7 @@ export class AgentService extends APIService {
           if (!trimmed) continue;
           if (trimmed.startsWith("data: ")) {
             try {
-              const chunk = JSON.parse(trimmed.slice(6)) as TAgentStreamChunk;
+              const chunk = JSON.parse(trimmed.slice(6)) as { type: string; content: string };
               onChunk(chunk);
               if (chunk.type === "done") {
                 onComplete();
@@ -100,7 +201,7 @@ export class AgentService extends APIService {
       // Process any remaining data in the buffer
       if (lineBuffer.trim().startsWith("data: ")) {
         try {
-          const chunk = JSON.parse(lineBuffer.trim().slice(6)) as TAgentStreamChunk;
+          const chunk = JSON.parse(lineBuffer.trim().slice(6)) as { type: string; content: string };
           onChunk(chunk);
         } catch {
           onChunk({ type: "text", content: lineBuffer.trim().slice(6) });
@@ -110,26 +211,8 @@ export class AgentService extends APIService {
       onComplete();
     } catch (e: unknown) {
       if (e instanceof DOMException && e.name === "AbortError") return;
-      const errorMessage = e instanceof Error ? e.message : "Agent request failed";
+      const errorMessage = e instanceof Error ? e.message : "Agent stream request failed";
       onError(errorMessage);
-    }
-  }
-
-  /**
-   * Non-streaming fallback: send message and get full response.
-   */
-  async sendAgentMessage(request: TAgentRequest): Promise<{ response: string }> {
-    try {
-      const res = await fetch(`${ORCHESTRATOR_URL}/api/agent/message`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(request),
-      });
-      if (!res.ok) throw new Error(res.statusText);
-      return (await res.json()) as { response: string };
-    } catch (e: unknown) {
-      const errorMessage = e instanceof Error ? e.message : "Agent request failed";
-      throw new Error(errorMessage);
     }
   }
 }
