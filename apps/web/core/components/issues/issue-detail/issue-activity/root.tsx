@@ -4,7 +4,7 @@
  * See the LICENSE file for details.
  */
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import uniq from "lodash-es/uniq";
 import { observer } from "mobx-react";
 // plane package imports
@@ -17,6 +17,7 @@ import { useTranslation } from "@plane/i18n";
 import type { TFileSignedURLResponse, TIssueComment } from "@plane/types";
 // components
 import { CommentCreate } from "@/components/comments/comment-create";
+import type { TAgentSessionInfo } from "@/components/comments/comment-create";
 // hooks
 import { useIssueDetail } from "@/hooks/store/use-issue-detail";
 import { useProject } from "@/hooks/store/use-project";
@@ -45,6 +46,13 @@ export type TActivityOperations = {
   uploadCommentAsset: (blockId: string, file: File, commentId?: string) => Promise<TFileSignedURLResponse>;
 };
 
+// Active session type for multi-agent streaming
+type TActiveSession = {
+  sessionId: string;
+  providerSlug: string;
+  providerName: string;
+};
+
 export const IssueActivity = observer(function IssueActivity(props: TIssueActivity) {
   const { workspaceSlug, projectId, issueId, disabled = false, isIntakeIssue = false } = props;
   // i18n
@@ -70,6 +78,10 @@ export const IssueActivity = observer(function IssueActivity(props: TIssueActivi
   const isGuest = currentUserProjectRole === EUserPermissions.GUEST;
   const isAssigned = issue?.assignee_ids && currentUser?.id ? issue?.assignee_ids.includes(currentUser?.id) : false;
   const isWorklogButtonEnabled = !isIntakeIssue && !isGuest && (isAdmin || isAssigned);
+
+  // --- Multi-agent active sessions ---
+  const [activeSessions, setActiveSessions] = useState<TActiveSession[]>([]);
+
   // toggle filter
   const toggleFilter = (filter: TActivityFilters) => {
     if (!selectedFilters) return;
@@ -112,6 +124,7 @@ export const IssueActivity = observer(function IssueActivity(props: TIssueActivi
         .join(" ")
     : undefined;
 
+  // Handle legacy (mention-based) agent response complete
   const handleAgentResponseComplete = useCallback(
     async (responseText: string) => {
       if (!responseText.trim()) {
@@ -128,7 +141,7 @@ export const IssueActivity = observer(function IssueActivity(props: TIssueActivi
           comment_html: agentCommentHtml,
         });
         // Small delay to let MobX propagate the new comment to the activity list
-        // before we dismiss the streaming UI — prevents a visual gap
+        // before we dismiss the streaming UI -- prevents a visual gap
         await new Promise((r) => setTimeout(r, 500));
       } catch (err) {
         console.error("Failed to persist agent response as comment:", err);
@@ -137,6 +150,40 @@ export const IssueActivity = observer(function IssueActivity(props: TIssueActivi
       dismissAgentResponse();
     },
     [activityOperations, dismissAgentResponse, activeInvocations]
+  );
+
+  // Handle multi-agent session response complete (from agent mode bar invocations)
+  const handleSessionResponseComplete = useCallback(
+    async (sessionId: string, providerSlug: string, responseText: string) => {
+      if (responseText.trim()) {
+        try {
+          const agentCommentHtml = `<div data-agent-provider="${providerSlug}">${responseText.replace(/\n/g, "<br/>")}</div>`;
+          await activityOperations.createComment({
+            comment_html: agentCommentHtml,
+          });
+          await new Promise((r) => setTimeout(r, 500));
+        } catch (err) {
+          console.error("Failed to persist agent session response as comment:", err);
+        }
+      }
+
+      // Remove this session from active sessions
+      setActiveSessions((prev) => prev.filter((s) => s.sessionId !== sessionId));
+    },
+    [activityOperations]
+  );
+
+  // Callback from CommentCreate when agents are invoked via the agent mode bar
+  const handleAgentSessionsCreated = useCallback(
+    (sessions: TAgentSessionInfo[]) => {
+      const newSessions: TActiveSession[] = sessions.map((s) => ({
+        sessionId: s.sessionId,
+        providerSlug: s.providerSlug,
+        providerName: s.providerName,
+      }));
+      setActiveSessions((prev) => [...prev, ...newSessions]);
+    },
+    []
   );
 
   // Wrap createComment to detect agent mentions after posting
@@ -176,9 +223,10 @@ export const IssueActivity = observer(function IssueActivity(props: TIssueActivi
         activityOperations={wrappedActivityOperations}
         showToolbarInitially
         projectId={projectId}
+        onAgentSessionsCreated={handleAgentSessionsCreated}
       />
     ),
-    [workspaceSlug, issueId, wrappedActivityOperations, projectId]
+    [workspaceSlug, issueId, wrappedActivityOperations, projectId, handleAgentSessionsCreated]
   );
   if (!project) return <></>;
 
@@ -224,7 +272,7 @@ export const IssueActivity = observer(function IssueActivity(props: TIssueActivi
               agentCallingCommentId={agentCallingCommentId}
               agentCallingProviderName={activeProviderName}
             />
-            {/* Agent streaming response card - positioned after activity list */}
+            {/* Legacy: single agent streaming response from @mention invocation */}
             {showAgentResponse && agentRequest && (
               <AgentStreamingResponse
                 request={agentRequest}
@@ -234,6 +282,19 @@ export const IssueActivity = observer(function IssueActivity(props: TIssueActivi
                 onSessionStateChange={setAgentSessionState}
               />
             )}
+            {/* Multi-agent: concurrent streaming responses from agent mode bar */}
+            {activeSessions.map((session) => (
+              <AgentStreamingResponse
+                key={session.sessionId}
+                sessionId={session.sessionId}
+                workspaceSlug={workspaceSlug}
+                providerName={session.providerName}
+                providerSlug={session.providerSlug}
+                onResponseComplete={(resp) =>
+                  void handleSessionResponseComplete(session.sessionId, session.providerSlug, resp)
+                }
+              />
+            ))}
             {!disabled && sortOrder === E_SORT_ORDER.ASC && renderCommentCreationBox}
           </div>
         </div>

@@ -127,17 +127,41 @@ export function AgentCommentBlock(props: TAgentCommentBlockProps) {
 }
 
 // --- Streaming Response (Linear-style structured UI) ---
-type TAgentResponseProps = {
+
+/**
+ * Legacy props: uses request-based streaming (deprecated, kept for backward compat)
+ */
+type TAgentResponseLegacyProps = {
   request: TAgentRequest;
+  sessionId?: undefined;
+  workspaceSlug?: string;
   providerName?: string;
   providerSlug?: string;
   onResponseComplete?: (response: string) => void;
   onSessionStateChange?: (state: TAgentSessionState) => void;
 };
 
+/**
+ * New session-based props: streams from an existing session via SSE
+ */
+type TAgentResponseSessionProps = {
+  request?: undefined;
+  sessionId: string;
+  workspaceSlug: string;
+  providerName?: string;
+  providerSlug?: string;
+  onResponseComplete?: (response: string) => void;
+  onSessionStateChange?: (state: TAgentSessionState) => void;
+};
+
+type TAgentResponseProps = TAgentResponseLegacyProps | TAgentResponseSessionProps;
+
 export const AgentStreamingResponse = observer(function AgentStreamingResponse(props: TAgentResponseProps) {
-  const { request, providerName, providerSlug, onResponseComplete, onSessionStateChange } = props;
+  const { providerName, providerSlug, onResponseComplete, onSessionStateChange } = props;
   const agentDisplayName = providerName || "AI Agent";
+
+  // Determine streaming mode
+  const isSessionMode = !!props.sessionId;
 
   // State
   const [sessionState, setSessionState] = useState<TAgentSessionState>("calling");
@@ -197,8 +221,83 @@ export const AgentStreamingResponse = observer(function AgentStreamingResponse(p
     setCompletedCount(DEFAULT_PLAN_STEPS.length);
   }, []);
 
-  // Stream handler
-  const startStream = useCallback(() => {
+  // Common chunk handler shared by both modes
+  const handleChunk = useCallback(
+    (chunk: { type: string; content: string }, flags: { hasReceivedThinking: boolean; hasReceivedText: boolean }) => {
+      switch (chunk.type) {
+        case "thinking":
+          if (!flags.hasReceivedThinking) {
+            flags.hasReceivedThinking = true;
+            updateSessionState("working");
+            advancePlan(0);
+          }
+          setEphemeralThought(chunk.content);
+          // Advance plan steps based on thinking progress (use ref for current value)
+          if (flags.hasReceivedThinking && currentPlanIndexRef.current < 1) {
+            advancePlan(1);
+          }
+          break;
+        case "plan":
+          // Server-sent plan steps override defaults
+          try {
+            const steps = JSON.parse(chunk.content) as string[];
+            setPlanSteps(steps.map((label, i) => ({
+              label,
+              status: i === 0 ? "active" : "pending",
+            })));
+            setCurrentPlanIndex(0);
+            currentPlanIndexRef.current = 0;
+          } catch {
+            // Ignore parse errors
+          }
+          break;
+        case "text":
+          if (!flags.hasReceivedText) {
+            flags.hasReceivedText = true;
+            updateSessionState("responding");
+            advancePlan(DEFAULT_PLAN_STEPS.length - 1);
+            setEphemeralThought("");
+          }
+          responseRef.current += chunk.content;
+          setResponse(responseRef.current);
+          // Auto-scroll inside the response area
+          if (containerRef.current) {
+            containerRef.current.scrollTop = containerRef.current.scrollHeight;
+          }
+          break;
+        case "error":
+          setError(chunk.content);
+          break;
+      }
+    },
+    [updateSessionState, advancePlan]
+  );
+
+  // Common completion handler
+  const handleComplete = useCallback(() => {
+    completePlan();
+    updateSessionState("completed");
+    setEphemeralThought("");
+    // Show the completed state for 2 seconds before collapsing and persisting
+    setTimeout(() => {
+      setIsPlanCollapsed(true);
+    }, 1500);
+    setTimeout(() => {
+      onResponseComplete?.(responseRef.current);
+    }, 3000);
+  }, [completePlan, updateSessionState, onResponseComplete]);
+
+  // Common error handler
+  const handleError = useCallback(
+    (err: string) => {
+      setError(err);
+      updateSessionState("completed");
+    },
+    [updateSessionState]
+  );
+
+  // Reset state before starting a stream
+  const resetStreamState = useCallback(() => {
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -214,77 +313,48 @@ export const AgentStreamingResponse = observer(function AgentStreamingResponse(p
     setCompletedCount(0);
     responseRef.current = "";
 
-    let hasReceivedThinking = false;
-    let hasReceivedText = false;
+    return controller;
+  }, [updateSessionState]);
 
-    void agentService.streamAgentResponse(
-      request,
-      (chunk: TAgentStreamChunk) => {
-        switch (chunk.type) {
-          case "thinking":
-            if (!hasReceivedThinking) {
-              hasReceivedThinking = true;
-              updateSessionState("working");
-              advancePlan(0);
-            }
-            setEphemeralThought(chunk.content);
-            // Advance plan steps based on thinking progress (use ref for current value)
-            if (hasReceivedThinking && currentPlanIndexRef.current < 1) {
-              advancePlan(1);
-            }
-            break;
-          case "plan":
-            // Server-sent plan steps override defaults
-            try {
-              const steps = JSON.parse(chunk.content) as string[];
-              setPlanSteps(steps.map((label, i) => ({
-                label,
-                status: i === 0 ? "active" : "pending",
-              })));
-              setCurrentPlanIndex(0);
-              currentPlanIndexRef.current = 0;
-            } catch {
-              // Ignore parse errors
-            }
-            break;
-          case "text":
-            if (!hasReceivedText) {
-              hasReceivedText = true;
-              updateSessionState("responding");
-              advancePlan(DEFAULT_PLAN_STEPS.length - 1);
-              setEphemeralThought("");
-            }
-            responseRef.current += chunk.content;
-            setResponse(responseRef.current);
-            // Auto-scroll inside the response area
-            if (containerRef.current) {
-              containerRef.current.scrollTop = containerRef.current.scrollHeight;
-            }
-            break;
-          case "error":
-            setError(chunk.content);
-            break;
-        }
-      },
-      () => {
-        completePlan();
-        updateSessionState("completed");
-        setEphemeralThought("");
-        // Show the completed state for 2 seconds before collapsing and persisting
-        setTimeout(() => {
-          setIsPlanCollapsed(true);
-        }, 1500);
-        setTimeout(() => {
-          onResponseComplete?.(responseRef.current);
-        }, 3000);
-      },
-      (err) => {
-        setError(err);
-        updateSessionState("completed");
-      },
+  // Stream handler - session-based (new approach)
+  const startSessionStream = useCallback(() => {
+    if (!props.sessionId || !props.workspaceSlug) return;
+    const controller = resetStreamState();
+    const flags = { hasReceivedThinking: false, hasReceivedText: false };
+
+    void agentService.streamSession(
+      props.workspaceSlug,
+      props.sessionId,
+      (chunk) => handleChunk(chunk, flags),
+      handleComplete,
+      handleError,
       controller.signal
     );
-  }, [request, updateSessionState, advancePlan, completePlan, onResponseComplete]);
+  }, [props.sessionId, props.workspaceSlug, resetStreamState, handleChunk, handleComplete, handleError]);
+
+  // Stream handler - legacy request-based
+  const startLegacyStream = useCallback(() => {
+    if (!props.request) return;
+    const controller = resetStreamState();
+    const flags = { hasReceivedThinking: false, hasReceivedText: false };
+
+    void agentService.streamAgentResponse(
+      props.request,
+      (chunk: TAgentStreamChunk) => handleChunk(chunk, flags),
+      handleComplete,
+      handleError,
+      controller.signal
+    );
+  }, [props.request, resetStreamState, handleChunk, handleComplete, handleError]);
+
+  // Unified start
+  const startStream = useCallback(() => {
+    if (isSessionMode) {
+      startSessionStream();
+    } else {
+      startLegacyStream();
+    }
+  }, [isSessionMode, startSessionStream, startLegacyStream]);
 
   // Start streaming on mount + scroll into view
   useEffect(() => {
