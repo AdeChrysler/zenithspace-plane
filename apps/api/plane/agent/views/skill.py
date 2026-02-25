@@ -3,6 +3,7 @@
 # See the LICENSE file for details.
 
 # Third party imports
+from django.db.models import Q
 from rest_framework import status
 from rest_framework.response import Response
 
@@ -26,10 +27,10 @@ class AgentSkillListCreateEndpoint(BaseAPIView):
         workspace = Workspace.objects.get(slug=slug)
         skills = AgentSkill.objects.filter(workspace=workspace)
 
-        # Optional filter by project_id
+        # Optional filter by project_id (include workspace-wide skills with no project)
         project_id = request.query_params.get("project_id")
         if project_id:
-            skills = skills.filter(project_id=project_id)
+            skills = skills.filter(Q(project_id=project_id) | Q(project__isnull=True))
 
         serializer = AgentSkillSerializer(skills, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)

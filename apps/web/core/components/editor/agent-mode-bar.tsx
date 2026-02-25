@@ -26,11 +26,13 @@ export interface AgentModeBarProps {
 // --- Helper: build a unique key for a provider variant ---
 
 function variantKey(provider: TAgentProvider, variant: TAgentProviderVariant): string {
-  return `${provider.slug}:${variant.slug}`;
+  return `${provider.slug}-${variant.slug}`;
 }
 
 function displayNameForKey(key: string, providers: TAgentProvider[]): string {
-  const [provSlug, varSlug] = key.split(":");
+  const lastDash = key.lastIndexOf("-");
+  const provSlug = lastDash > 0 ? key.slice(0, lastDash) : key;
+  const varSlug = lastDash > 0 ? key.slice(lastDash + 1) : "";
   for (const p of providers) {
     if (p.slug === provSlug) {
       for (const v of p.variants) {
@@ -41,7 +43,6 @@ function displayNameForKey(key: string, providers: TAgentProvider[]): string {
   }
   // Fallback: humanize the key
   return key
-    .replace(":", " ")
     .split("-")
     .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
     .join(" ");

@@ -4,6 +4,7 @@
 
 # Python imports
 import json
+import time
 
 # Django imports
 from django.http import StreamingHttpResponse
@@ -59,7 +60,10 @@ class AgentSessionStreamEndpoint(BaseAPIView):
                 # Send initial connected event
                 yield f"event: connected\ndata: {json.dumps({'session_id': str(session_id), 'status': session.status})}\n\n"
 
-                while True:
+                timeout_at = time.time() + (session.timeout_minutes * 60) + 60
+                last_heartbeat = time.time()
+
+                while time.time() < timeout_at:
                     message = pubsub.get_message(
                         ignore_subscribe_messages=True, timeout=1.0
                     )
@@ -80,6 +84,14 @@ class AgentSessionStreamEndpoint(BaseAPIView):
                         # Break on terminal events
                         if event_type in ("done", "error"):
                             break
+
+                    # Send heartbeat comment every 15 seconds to keep connection alive
+                    if time.time() - last_heartbeat > 15:
+                        yield ": heartbeat\n\n"
+                        last_heartbeat = time.time()
+                else:
+                    # Loop ended due to timeout, send timeout event
+                    yield f"data: {json.dumps({'type': 'error', 'content': 'Stream timeout'})}\n\n"
             finally:
                 pubsub.unsubscribe(channel)
                 pubsub.close()

@@ -81,7 +81,9 @@ export const CommentCreate = observer(function CommentCreate(props: TCommentCrea
     const sessions: TAgentSessionInfo[] = [];
 
     for (const variantKey of selectedVariants) {
-      const [providerSlug, variantSlug] = variantKey.split(":");
+      const lastDash = variantKey.lastIndexOf("-");
+      const providerSlug = lastDash > 0 ? variantKey.slice(0, lastDash) : variantKey;
+      const variantSlug = lastDash > 0 ? variantKey.slice(lastDash + 1) : "";
       if (!providerSlug || !variantSlug) continue;
 
       try {
@@ -97,7 +99,6 @@ export const CommentCreate = observer(function CommentCreate(props: TCommentCrea
 
         // Build a display name from the variant key
         const displayName = variantKey
-          .replace(":", " ")
           .split("-")
           .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
           .join(" ");

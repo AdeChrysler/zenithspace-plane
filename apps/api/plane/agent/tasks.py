@@ -3,6 +3,7 @@
 # See the LICENSE file for details.
 
 # Python imports
+import html
 import json
 import logging
 
@@ -168,7 +169,7 @@ def run_agent_task(self, session_id):
         )
         session.completed_at = timezone.now()
         session.response_text = full_response
-        session.response_html = full_response.replace("\n", "<br/>")
+        session.response_html = html.escape(full_response).replace("\n", "<br/>")
         session.pull_request_url = pr_url
         session.branch_name = branch_name or f"agent/{session.id}"
         if session.started_at:

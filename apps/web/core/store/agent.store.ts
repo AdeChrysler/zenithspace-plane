@@ -39,6 +39,7 @@ export type TAgentSkill = {
   name: string;
   trigger: string;
   description: string;
+  instructions: string;
   default_provider: string;
   mode: string;
   timeout_minutes: number;

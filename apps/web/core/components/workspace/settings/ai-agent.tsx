@@ -211,6 +211,7 @@ type TSkillFormData = {
   name: string;
   trigger: string;
   description: string;
+  instructions: string;
   default_provider: string;
   mode: string;
   timeout_minutes: number;
@@ -220,6 +221,7 @@ const EMPTY_SKILL_FORM: TSkillFormData = {
   name: "",
   trigger: "",
   description: "",
+  instructions: "",
   default_provider: "",
   mode: "autonomous",
   timeout_minutes: 30,
@@ -281,6 +283,19 @@ function SkillForm({
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleChange("description", e.target.value)}
           placeholder="What this skill does..."
           className="w-full rounded-md"
+        />
+      </div>
+
+      {/* Instructions */}
+      <div className="flex flex-col gap-1">
+        <label htmlFor="skill-instructions" className="text-caption-sm-medium text-tertiary">Instructions</label>
+        <textarea
+          id="skill-instructions"
+          value={formData.instructions}
+          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handleChange("instructions", e.target.value)}
+          placeholder="Detailed instructions for the agent when this skill is triggered..."
+          className="w-full rounded-md border border-subtle bg-layer-2 px-3 py-2 text-sm text-primary placeholder:text-tertiary focus:border-primary focus:outline-none resize-y min-h-[80px]"
+          rows={3}
         />
       </div>
 
@@ -497,6 +512,7 @@ export const AIAgentSettings = observer(function AIAgentSettings() {
     name: skill.name,
     trigger: skill.trigger,
     description: skill.description,
+    instructions: skill.instructions || "",
     default_provider: skill.default_provider,
     mode: skill.mode,
     timeout_minutes: skill.timeout_minutes,

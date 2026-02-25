@@ -69,7 +69,7 @@ function parseAgentMentions(commentHtml: string): Array<{ provider_slug: string;
 
     if (hasLegacyMention) {
       mentions.push({
-        provider_slug: "claude-code",
+        provider_slug: "claude",
         variant_slug: "sonnet",
       });
     }

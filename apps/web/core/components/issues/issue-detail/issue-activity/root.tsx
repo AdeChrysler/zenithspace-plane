@@ -4,7 +4,7 @@
  * See the LICENSE file for details.
  */
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import uniq from "lodash-es/uniq";
 import { observer } from "mobx-react";
 // plane package imports
@@ -166,7 +166,7 @@ export const IssueActivity = observer(function IssueActivity(props: TIssueActivi
   }, [activeInvocations, setSessionForInvocation, dismissAgentResponse]);
 
   // Auto-invoke agents when mention is detected
-  useMemo(() => {
+  useEffect(() => {
     if (showAgentResponse && activeInvocations.length > 0) {
       void invokeAgentsForMentions();
     }

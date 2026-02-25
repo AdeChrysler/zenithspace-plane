@@ -109,7 +109,7 @@ class AgentOAuthConnectEndpoint(BaseAPIView):
         r.setex(f"{STATE_KEY_PREFIX}{state}", STATE_TTL_SECONDS, state_data)
 
         # Build callback URL
-        callback_path = f"/api/agents/workspaces/{slug}/config/callback/{provider_slug}/"
+        callback_path = f"/api/agent/workspaces/{slug}/config/callback/{provider_slug}/"
         scheme = "https" if request.is_secure() else "http"
         redirect_uri = f"{scheme}://{request.get_host()}{callback_path}"
 
@@ -238,7 +238,7 @@ class AgentOAuthCallbackEndpoint(BaseAPIView):
             )
 
         # Build callback URL (must match what was sent in the authorize request)
-        callback_path = f"/api/agents/workspaces/{slug}/config/callback/{provider_slug}/"
+        callback_path = f"/api/agent/workspaces/{slug}/config/callback/{provider_slug}/"
         scheme = "https" if request.is_secure() else "http"
         redirect_uri = f"{scheme}://{request.get_host()}{callback_path}"
 
