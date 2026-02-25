@@ -1,0 +1,62 @@
+# syntax=docker/dockerfile:1.7
+# ZenithSpace API — RAM-optimized build
+# Clones from GitHub and builds pip dependencies in tmpfs
+
+FROM alpine/git AS cloner
+WORKDIR /repo
+ARG CACHEBUST=1
+RUN git clone --depth=1 --branch main https://github.com/AdeChrysler/zenithspace-plane.git .
+
+FROM python:3.12.10-alpine
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
+
+RUN apk update && apk upgrade
+
+WORKDIR /code
+
+RUN apk add --no-cache --upgrade \
+    "libpq" \
+    "libxslt" \
+    "xmlsec" \
+    "ca-certificates" \
+    "openssl" \
+    "libffi-dev" \
+    "bash~=5.2" \
+    "docker-cli"
+
+# Copy requirements first for caching
+COPY --from=cloner /repo/apps/api/requirements.txt ./
+COPY --from=cloner /repo/apps/api/requirements ./requirements
+
+# Install Python deps in tmpfs (RAM) for speed
+RUN --mount=type=tmpfs,target=/ram,size=4G \
+    apk add --no-cache --virtual .build-deps \
+    "g++" "gcc" "cargo" "git" "make" \
+    "postgresql-dev" "libc-dev" "linux-headers" \
+    && \
+    cp -a /code/requirements.txt /ram/ && \
+    cp -a /code/requirements /ram/ && \
+    cd /ram && \
+    pip install -r requirements.txt --compile --no-cache-dir \
+    && \
+    apk del .build-deps \
+    && \
+    rm -rf /var/cache/apk/*
+
+# Copy application code
+COPY --from=cloner /repo/apps/api/manage.py manage.py
+COPY --from=cloner /repo/apps/api/plane plane/
+COPY --from=cloner /repo/apps/api/templates templates/
+COPY --from=cloner /repo/apps/api/package.json package.json
+COPY --from=cloner /repo/apps/api/bin ./bin/
+
+RUN mkdir -p /code/plane/logs
+RUN chmod +x ./bin/*
+RUN chmod -R 777 /code
+
+EXPOSE 8000
+
+CMD ["./bin/docker-entrypoint-api.sh"]
