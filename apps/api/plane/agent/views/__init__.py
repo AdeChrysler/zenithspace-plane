@@ -11,6 +11,7 @@ from .invoke import (
     AgentSessionCancelEndpoint,
 )
 from .stream import AgentSessionStreamEndpoint
+from .oauth import AgentOAuthConnectEndpoint, AgentOAuthCallbackEndpoint
 
 __all__ = [
     "AgentProviderListEndpoint",
@@ -21,4 +22,6 @@ __all__ = [
     "AgentSessionDetailEndpoint",
     "AgentSessionCancelEndpoint",
     "AgentSessionStreamEndpoint",
+    "AgentOAuthConnectEndpoint",
+    "AgentOAuthCallbackEndpoint",
 ]

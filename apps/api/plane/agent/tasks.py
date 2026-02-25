@@ -15,6 +15,7 @@ from django.utils import timezone
 
 # Module imports
 from plane.agent.models import AgentSession, AgentSkill, WorkspaceAgentConfig
+from plane.agent.utils.encryption import decrypt_token
 from plane.utils.exception_logger import log_exception
 
 logger = logging.getLogger(__name__)
@@ -33,11 +34,12 @@ def _publish_chunk(redis_client, session_id, chunk_type, content):
 
 
 def _decrypt_token(encrypted_token):
-    """Decrypt an OAuth token.
-    TODO: Implement proper Fernet encryption using SECRET_KEY.
-    For initial implementation, tokens are stored as-is.
+    """Decrypt an OAuth token using Fernet symmetric encryption.
+
+    Delegates to the encryption utility which derives a key from
+    Django's SECRET_KEY.
     """
-    return encrypted_token
+    return decrypt_token(encrypted_token)
 
 
 @shared_task(bind=True, max_retries=1, time_limit=1800, soft_time_limit=1740)

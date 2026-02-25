@@ -13,6 +13,8 @@ from plane.agent.views import (
     AgentSessionDetailEndpoint,
     AgentSessionCancelEndpoint,
     AgentSessionStreamEndpoint,
+    AgentOAuthConnectEndpoint,
+    AgentOAuthCallbackEndpoint,
 )
 
 urlpatterns = [
@@ -61,5 +63,16 @@ urlpatterns = [
         "workspaces/<str:slug>/sessions/<uuid:session_id>/stream/",
         AgentSessionStreamEndpoint.as_view(),
         name="agent-session-stream",
+    ),
+    # OAuth
+    path(
+        "workspaces/<str:slug>/config/connect/<str:provider_slug>/",
+        AgentOAuthConnectEndpoint.as_view(),
+        name="agent-oauth-connect",
+    ),
+    path(
+        "workspaces/<str:slug>/config/callback/<str:provider_slug>/",
+        AgentOAuthCallbackEndpoint.as_view(),
+        name="agent-oauth-callback",
     ),
 ]
