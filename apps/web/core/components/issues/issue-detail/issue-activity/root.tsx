@@ -23,6 +23,8 @@ import { useIssueDetail } from "@/hooks/store/use-issue-detail";
 import { useProject } from "@/hooks/store/use-project";
 import { useUser, useUserPermissions } from "@/hooks/store/user";
 import { useAgentMention } from "@/hooks/use-agent-mention";
+// services
+import { AgentService } from "@/services/agent.service";
 // plane web components
 import { ActivityFilterRoot } from "@/plane-web/components/issues/worklog/activity/filter-root";
 import { IssueActivityWorklogCreateButton } from "@/plane-web/components/issues/worklog/activity/worklog-create-button";
@@ -30,6 +32,8 @@ import { AgentStreamingResponse } from "./agent-response";
 import { IssueActivityCommentRoot } from "./activity-comment-root";
 import { useWorkItemCommentOperations } from "./helper";
 import { ActivitySortRoot } from "./sort-root";
+
+const agentService = new AgentService();
 
 type TIssueActivity = {
   workspaceSlug: string;
@@ -103,18 +107,15 @@ export const IssueActivity = observer(function IssueActivity(props: TIssueActivi
   // helper hooks
   const activityOperations = useWorkItemCommentOperations(workspaceSlug, projectId, issueId);
   const {
-    agentRequest,
     activeInvocations,
     showAgentResponse,
     agentCallingCommentId,
     setAgentSessionState,
+    setSessionForInvocation,
     checkForAgentMention,
     dismissAgentResponse,
   } = useAgentMention();
 
-  // Persist agent response as a real comment, then dismiss the streaming UI.
-  // The streaming component already delays calling this by 3s so the user sees
-  // the completed plan animation before we swap to a persisted comment.
   // Derive provider display name from the first active invocation
   const activeProviderSlug = activeInvocations.length > 0 ? activeInvocations[0].key : undefined;
   const activeProviderName = activeProviderSlug
@@ -124,35 +125,55 @@ export const IssueActivity = observer(function IssueActivity(props: TIssueActivi
         .join(" ")
     : undefined;
 
-  // Handle legacy (mention-based) agent response complete
-  const handleAgentResponseComplete = useCallback(
-    async (responseText: string) => {
-      if (!responseText.trim()) {
-        dismissAgentResponse();
-        return;
-      }
+  // --- Invoke agents for mention-based invocations ---
+  // When a mention is detected, we invoke the agent backend to create sessions,
+  // then stream those sessions.
+  const invokeAgentsForMentions = useCallback(async () => {
+    if (activeInvocations.length === 0) return;
 
+    for (const invocation of activeInvocations) {
       try {
-        // Use the provider slug from the first invocation for the persisted comment marker
-        const providerSlug = activeInvocations.length > 0 ? activeInvocations[0].key : "claude-code-sonnet";
-        // Wrap in agent-identifiable HTML with the provider-variant slug
-        const agentCommentHtml = `<div data-agent-provider="${providerSlug}">${responseText.replace(/\n/g, "<br/>")}</div>`;
-        await activityOperations.createComment({
-          comment_html: agentCommentHtml,
+        const session = await agentService.invokeAgent(invocation.context.workspace_slug, {
+          provider_slug: invocation.provider_slug,
+          variant_slug: invocation.variant_slug,
+          project_id: invocation.context.project_id,
+          issue_id: invocation.context.issue_id,
+          comment_text: invocation.context.comment_text,
         });
-        // Small delay to let MobX propagate the new comment to the activity list
-        // before we dismiss the streaming UI -- prevents a visual gap
-        await new Promise((r) => setTimeout(r, 500));
+
+        // Track the session
+        setSessionForInvocation(invocation.key, session.id);
+
+        // Add to active sessions for streaming
+        setActiveSessions((prev) => [
+          ...prev,
+          {
+            sessionId: session.id,
+            providerSlug: invocation.key,
+            providerName: invocation.key
+              .split("-")
+              .map((part: string) => part.charAt(0).toUpperCase() + part.slice(1))
+              .join(" "),
+          },
+        ]);
       } catch (err) {
-        console.error("Failed to persist agent response as comment:", err);
+        console.error(`Failed to invoke agent for ${invocation.key}:`, err);
       }
+    }
 
-      dismissAgentResponse();
-    },
-    [activityOperations, dismissAgentResponse, activeInvocations]
-  );
+    // After invoking all agents, dismiss the mention-based UI (sessions handle streaming now)
+    dismissAgentResponse();
+  }, [activeInvocations, setSessionForInvocation, dismissAgentResponse]);
 
-  // Handle multi-agent session response complete (from agent mode bar invocations)
+  // Auto-invoke agents when mention is detected
+  useMemo(() => {
+    if (showAgentResponse && activeInvocations.length > 0) {
+      void invokeAgentsForMentions();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showAgentResponse]);
+
+  // Handle agent session response complete (from both mentions and agent mode bar)
   const handleSessionResponseComplete = useCallback(
     async (sessionId: string, providerSlug: string, responseText: string) => {
       if (responseText.trim()) {
@@ -272,17 +293,7 @@ export const IssueActivity = observer(function IssueActivity(props: TIssueActivi
               agentCallingCommentId={agentCallingCommentId}
               agentCallingProviderName={activeProviderName}
             />
-            {/* Legacy: single agent streaming response from @mention invocation */}
-            {showAgentResponse && agentRequest && (
-              <AgentStreamingResponse
-                request={agentRequest}
-                providerName={activeProviderName}
-                providerSlug={activeProviderSlug}
-                onResponseComplete={(resp) => void handleAgentResponseComplete(resp)}
-                onSessionStateChange={setAgentSessionState}
-              />
-            )}
-            {/* Multi-agent: concurrent streaming responses from agent mode bar */}
+            {/* Multi-agent: concurrent streaming responses */}
             {activeSessions.map((session) => (
               <AgentStreamingResponse
                 key={session.sessionId}

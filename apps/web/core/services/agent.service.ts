@@ -11,37 +11,13 @@ import type { TAgentProvider, TAgentSkill, TAgentSession, TAgentInvokeRequest } 
 // services
 import { APIService } from "@/services/api.service";
 
-// --- Legacy type aliases (kept for backward compatibility until Tasks 16/18/20 migrate consumers) ---
-
-/** @deprecated Use TAgentInvokeRequest from @/store/agent.store instead. Will be removed in Task 20. */
-export type TAgentRequest = {
-  workspace_slug: string;
-  project_id: string;
-  issue_id: string;
-  comment_text: string;
-  issue_context?: {
-    title: string;
-    description?: string;
-    state?: string;
-    priority?: string;
-    assignees?: string[];
-    labels?: string[];
-  };
-};
-
-/** @deprecated Use { type: string; content: string } from @/store/agent.store instead. Will be removed in Task 20. */
-export type TAgentStreamChunk = {
-  type: "text" | "thinking" | "plan" | "done" | "error";
-  content: string;
-};
-
 export class AgentService extends APIService {
   constructor() {
     super(API_BASE_URL as string);
   }
 
   /**
-   * Fetch available agent providers for a workspace.
+   * Fetch all agent providers for a workspace (including disabled ones for admin settings).
    */
   async fetchProviders(workspaceSlug: string): Promise<TAgentProvider[]> {
     return this.get(`/api/agent/workspaces/${workspaceSlug}/providers/`)
@@ -57,6 +33,39 @@ export class AgentService extends APIService {
   async fetchSkills(workspaceSlug: string, projectId?: string): Promise<TAgentSkill[]> {
     const params = projectId ? `?project_id=${projectId}` : "";
     return this.get(`/api/agent/workspaces/${workspaceSlug}/skills/${params}`)
+      .then((response) => response?.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  /**
+   * Create a new agent skill for a workspace.
+   */
+  async createSkill(workspaceSlug: string, data: Partial<TAgentSkill>): Promise<TAgentSkill> {
+    return this.post(`/api/agent/workspaces/${workspaceSlug}/skills/`, data)
+      .then((response) => response?.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  /**
+   * Update an existing agent skill.
+   */
+  async updateSkill(workspaceSlug: string, skillId: string, data: Partial<TAgentSkill>): Promise<TAgentSkill> {
+    return this.put(`/api/agent/workspaces/${workspaceSlug}/skills/${skillId}/`, data)
+      .then((response) => response?.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  /**
+   * Delete an agent skill.
+   */
+  async deleteSkill(workspaceSlug: string, skillId: string): Promise<void> {
+    return this.delete(`/api/agent/workspaces/${workspaceSlug}/skills/${skillId}/`)
       .then((response) => response?.data)
       .catch((error) => {
         throw error?.response?.data;
@@ -94,42 +103,6 @@ export class AgentService extends APIService {
       .catch((error) => {
         throw error?.response?.data;
       });
-  }
-
-  /**
-   * @deprecated Legacy streaming method kept for backward compatibility.
-   * Uses the old orchestrator-style POST interface. Will be removed in Task 20.
-   * New code should use the store's streamSession which calls streamSession below.
-   */
-  async streamAgentResponse(
-    request: TAgentRequest,
-    onChunk: (chunk: TAgentStreamChunk) => void,
-    onComplete: () => void,
-    onError: (error: string) => void,
-    signal?: AbortSignal
-  ): Promise<void> {
-    try {
-      // Invoke via the new backend endpoint, then stream the session
-      const session = await this.invokeAgent(request.workspace_slug, {
-        provider_slug: "claude-code",
-        project_id: request.project_id,
-        issue_id: request.issue_id,
-        comment_text: request.comment_text,
-      });
-
-      await this.streamSession(
-        request.workspace_slug,
-        session.id,
-        (chunk) => onChunk(chunk as TAgentStreamChunk),
-        onComplete,
-        onError,
-        signal
-      );
-    } catch (e: unknown) {
-      if (e instanceof DOMException && e.name === "AbortError") return;
-      const errorMessage = e instanceof Error ? e.message : "Agent request failed";
-      onError(errorMessage);
-    }
   }
 
   /**

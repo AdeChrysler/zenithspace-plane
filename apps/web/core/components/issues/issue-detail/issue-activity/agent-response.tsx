@@ -15,7 +15,6 @@ import { Tooltip } from "@plane/propel/tooltip";
 // eslint-disable-next-line import/no-unresolved
 import { cn, copyTextToClipboard } from "@plane/utils";
 // services
-import type { TAgentRequest, TAgentStreamChunk } from "@/services/agent.service";
 import { AgentService } from "@/services/agent.service";
 import type { TAgentSessionState } from "@/hooks/use-agent-mention";
 
@@ -72,7 +71,7 @@ type TAgentCommentBlockProps = {
 };
 
 export function AgentCommentBlock(props: TAgentCommentBlockProps) {
-  const { content, providerName, providerSlug, timestamp, ends } = props;
+  const { content, providerName, timestamp, ends } = props;
   const displayName = providerName || "AI Agent";
   const [copied, setCopied] = useState(false);
 
@@ -128,24 +127,7 @@ export function AgentCommentBlock(props: TAgentCommentBlockProps) {
 
 // --- Streaming Response (Linear-style structured UI) ---
 
-/**
- * Legacy props: uses request-based streaming (deprecated, kept for backward compat)
- */
-type TAgentResponseLegacyProps = {
-  request: TAgentRequest;
-  sessionId?: undefined;
-  workspaceSlug?: string;
-  providerName?: string;
-  providerSlug?: string;
-  onResponseComplete?: (response: string) => void;
-  onSessionStateChange?: (state: TAgentSessionState) => void;
-};
-
-/**
- * New session-based props: streams from an existing session via SSE
- */
-type TAgentResponseSessionProps = {
-  request?: undefined;
+type TAgentResponseProps = {
   sessionId: string;
   workspaceSlug: string;
   providerName?: string;
@@ -154,19 +136,14 @@ type TAgentResponseSessionProps = {
   onSessionStateChange?: (state: TAgentSessionState) => void;
 };
 
-type TAgentResponseProps = TAgentResponseLegacyProps | TAgentResponseSessionProps;
-
 export const AgentStreamingResponse = observer(function AgentStreamingResponse(props: TAgentResponseProps) {
-  const { providerName, providerSlug, onResponseComplete, onSessionStateChange } = props;
+  const { sessionId, workspaceSlug, providerName, onResponseComplete, onSessionStateChange } = props;
   const agentDisplayName = providerName || "AI Agent";
-
-  // Determine streaming mode
-  const isSessionMode = !!props.sessionId;
 
   // State
   const [sessionState, setSessionState] = useState<TAgentSessionState>("calling");
   const [planSteps, setPlanSteps] = useState<PlanStep[]>(DEFAULT_PLAN_STEPS.map((s) => ({ ...s })));
-  const [currentPlanIndex, setCurrentPlanIndex] = useState(-1);
+  const [_currentPlanIndex, setCurrentPlanIndex] = useState(-1);
   const [ephemeralThought, setEphemeralThought] = useState("");
   const [response, setResponse] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -221,7 +198,7 @@ export const AgentStreamingResponse = observer(function AgentStreamingResponse(p
     setCompletedCount(DEFAULT_PLAN_STEPS.length);
   }, []);
 
-  // Common chunk handler shared by both modes
+  // Common chunk handler
   const handleChunk = useCallback(
     (chunk: { type: string; content: string }, flags: { hasReceivedThinking: boolean; hasReceivedText: boolean }) => {
       switch (chunk.type) {
@@ -316,45 +293,21 @@ export const AgentStreamingResponse = observer(function AgentStreamingResponse(p
     return controller;
   }, [updateSessionState]);
 
-  // Stream handler - session-based (new approach)
-  const startSessionStream = useCallback(() => {
-    if (!props.sessionId || !props.workspaceSlug) return;
+  // Stream handler - session-based
+  const startStream = useCallback(() => {
+    if (!sessionId || !workspaceSlug) return;
     const controller = resetStreamState();
     const flags = { hasReceivedThinking: false, hasReceivedText: false };
 
     void agentService.streamSession(
-      props.workspaceSlug,
-      props.sessionId,
+      workspaceSlug,
+      sessionId,
       (chunk) => handleChunk(chunk, flags),
       handleComplete,
       handleError,
       controller.signal
     );
-  }, [props.sessionId, props.workspaceSlug, resetStreamState, handleChunk, handleComplete, handleError]);
-
-  // Stream handler - legacy request-based
-  const startLegacyStream = useCallback(() => {
-    if (!props.request) return;
-    const controller = resetStreamState();
-    const flags = { hasReceivedThinking: false, hasReceivedText: false };
-
-    void agentService.streamAgentResponse(
-      props.request,
-      (chunk: TAgentStreamChunk) => handleChunk(chunk, flags),
-      handleComplete,
-      handleError,
-      controller.signal
-    );
-  }, [props.request, resetStreamState, handleChunk, handleComplete, handleError]);
-
-  // Unified start
-  const startStream = useCallback(() => {
-    if (isSessionMode) {
-      startSessionStream();
-    } else {
-      startLegacyStream();
-    }
-  }, [isSessionMode, startSessionStream, startLegacyStream]);
+  }, [sessionId, workspaceSlug, resetStreamState, handleChunk, handleComplete, handleError]);
 
   // Start streaming on mount + scroll into view
   useEffect(() => {

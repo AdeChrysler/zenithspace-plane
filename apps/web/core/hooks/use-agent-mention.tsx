@@ -5,7 +5,6 @@
  */
 
 import { useState, useCallback } from "react";
-import type { TAgentRequest } from "@/services/agent.service";
 
 export type TAgentSessionState = "calling" | "working" | "responding" | "completed";
 
@@ -19,8 +18,13 @@ export type TAgentInvocation = {
   variant_slug: string;
   /** A unique key for this invocation: "provider_slug-variant_slug" */
   key: string;
-  /** The legacy-compatible request object for streaming */
-  request: TAgentRequest;
+  /** Context needed to invoke the agent via the backend */
+  context: {
+    workspace_slug: string;
+    project_id: string;
+    issue_id: string;
+    comment_text: string;
+  };
 };
 
 /**
@@ -55,7 +59,7 @@ function parseAgentMentions(commentHtml: string): Array<{ provider_slug: string;
     }
   }
 
-  // Legacy fallback: detect old-style "zenith-agent" mentions
+  // Legacy fallback: detect old-style "zenith-agent" mentions for backward compatibility
   if (mentions.length === 0) {
     const hasLegacyMention =
       commentHtml.includes('entity_identifier="zenith-agent"') ||
@@ -91,9 +95,6 @@ export const useAgentMention = () => {
   const [agentCallingCommentId, setAgentCallingCommentId] = useState<string | null>(null);
   const [agentSessionState, setAgentSessionState] = useState<TAgentSessionState>("calling");
 
-  // Legacy single-request field for backward compatibility with AgentStreamingResponse
-  const [agentRequest, setAgentRequest] = useState<TAgentRequest | null>(null);
-
   const checkForAgentMention = useCallback(
     (
       commentHtml: string,
@@ -124,17 +125,11 @@ export const useAgentMention = () => {
         provider_slug: mention.provider_slug,
         variant_slug: mention.variant_slug,
         key: `${mention.provider_slug}-${mention.variant_slug}`,
-        request: {
+        context: {
           workspace_slug: context.workspace_slug,
           project_id: context.project_id,
           issue_id: context.issue_id,
           comment_text: plainText,
-          issue_context: {
-            title: context.issue_title,
-            description: context.issue_description,
-            state: context.issue_state,
-            priority: context.issue_priority,
-          },
         },
       }));
 
@@ -143,11 +138,6 @@ export const useAgentMention = () => {
       setShowAgentResponse(true);
       setAgentCallingCommentId(commentId ?? null);
       setAgentSessionState("calling");
-
-      // Legacy compat: set the first invocation as agentRequest
-      if (invocations.length > 0) {
-        setAgentRequest(invocations[0].request);
-      }
 
       return true;
     },
@@ -164,7 +154,6 @@ export const useAgentMention = () => {
 
   const dismissAgentResponse = useCallback(() => {
     setShowAgentResponse(false);
-    setAgentRequest(null);
     setActiveInvocations([]);
     setActiveSessions(new Map());
     setAgentCallingCommentId(null);
@@ -176,8 +165,6 @@ export const useAgentMention = () => {
     activeInvocations,
     activeSessions,
     setSessionForInvocation,
-    // Legacy single-request compat
-    agentRequest,
     // UI state
     showAgentResponse,
     agentCallingCommentId,
