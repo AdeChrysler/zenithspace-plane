@@ -87,26 +87,17 @@ class AgentInvokeEndpoint(BaseAPIView):
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
-        # Check workspace config has OAuth token
-        try:
-            config = WorkspaceAgentConfig.objects.get(
-                workspace=workspace,
-                provider=provider,
-                is_enabled=True,
-            )
-        except WorkspaceAgentConfig.DoesNotExist:
-            return Response(
-                {"error": "Agent provider is not configured for this workspace."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if not config.oauth_token_encrypted:
-            return Response(
-                {"error": "OAuth token not configured. Please connect the provider first."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        # Get workspace config if available (tokens can also come from
+        # InstanceConfiguration or the user's Account model, so config
+        # is optional).
+        config = WorkspaceAgentConfig.objects.filter(
+            workspace=workspace,
+            provider=provider,
+            is_enabled=True,
+        ).first()
 
         # Check concurrent session limit
+        max_concurrent = config.max_concurrent_sessions if config else 3
         active_sessions_count = AgentSession.objects.filter(
             workspace=workspace,
             provider_slug=provider_slug,
@@ -118,15 +109,16 @@ class AgentInvokeEndpoint(BaseAPIView):
             ],
         ).count()
 
-        if active_sessions_count >= config.max_concurrent_sessions:
+        if active_sessions_count >= max_concurrent:
             return Response(
                 {
-                    "error": f"Concurrent session limit reached ({config.max_concurrent_sessions}). Please wait for an active session to complete."
+                    "error": f"Concurrent session limit reached ({max_concurrent}). Please wait for an active session to complete."
                 },
                 status=status.HTTP_429_TOO_MANY_REQUESTS,
             )
 
         # Create session
+        timeout = config.timeout_minutes if config else 15
         session = AgentSession.objects.create(
             workspace=workspace,
             project_id=project_id,
@@ -138,7 +130,7 @@ class AgentInvokeEndpoint(BaseAPIView):
             model_id=variant.model_id,
             skill_trigger=request.data.get("skill_trigger"),
             comment_text=request.data.get("comment_text", ""),
-            timeout_minutes=config.timeout_minutes,
+            timeout_minutes=timeout,
             status=AgentSession.Status.PENDING,
         )
 

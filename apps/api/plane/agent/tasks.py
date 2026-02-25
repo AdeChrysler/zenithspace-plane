@@ -17,6 +17,8 @@ from django.utils import timezone
 # Module imports
 from plane.agent.models import AgentSession, AgentSkill, WorkspaceAgentConfig
 from plane.agent.utils.encryption import decrypt_token
+from plane.db.models.user import Account
+from plane.license.utils.instance_value import get_configuration_value
 from plane.utils.exception_logger import log_exception
 
 logger = logging.getLogger(__name__)
@@ -41,6 +43,63 @@ def _decrypt_token(encrypted_token):
     Django's SECRET_KEY.
     """
     return decrypt_token(encrypted_token)
+
+
+def _get_github_token(user_id):
+    """Resolve the GitHub token for the triggering user.
+
+    Lookup priority:
+      1. User's GitHub OAuth account (Account model)
+      2. Instance-level GITHUB_ACCESS_TOKEN from settings/env
+    """
+    try:
+        account = Account.objects.filter(
+            user_id=user_id, provider="github"
+        ).order_by("-last_connected_at").first()
+        if account and account.access_token:
+            return account.access_token
+    except Exception:
+        pass
+
+    # Fallback to instance-level env var
+    token = getattr(settings, "GITHUB_ACCESS_TOKEN", None)
+    if token and token is not False:
+        return str(token)
+
+    return ""
+
+
+def _get_llm_token(provider_slug, config):
+    """Resolve the LLM API token for the given provider.
+
+    Lookup priority:
+      1. WorkspaceAgentConfig.oauth_token_encrypted (per-workspace)
+      2. InstanceConfiguration LLM_API_KEY (instance-level, encrypted)
+      3. Environment variable (ANTHROPIC_API_KEY / GOOGLE_API_KEY)
+    """
+    # 1. Per-workspace encrypted token
+    if config and config.oauth_token_encrypted:
+        token = _decrypt_token(config.oauth_token_encrypted)
+        if token:
+            return token
+
+    # 2. Instance-level LLM_API_KEY from InstanceConfiguration / env
+    try:
+        (llm_api_key,) = get_configuration_value(
+            [{"key": "LLM_API_KEY", "default": ""}]
+        )
+        if llm_api_key:
+            return str(llm_api_key)
+    except Exception:
+        pass
+
+    # 3. Direct env var fallback
+    if provider_slug == "claude":
+        return settings.ANTHROPIC_API_KEY if hasattr(settings, "ANTHROPIC_API_KEY") else ""
+    if provider_slug == "gemini":
+        return settings.GOOGLE_API_KEY if hasattr(settings, "GOOGLE_API_KEY") else ""
+
+    return ""
 
 
 @shared_task(bind=True, max_retries=1, time_limit=1800, soft_time_limit=1740)
@@ -70,13 +129,20 @@ def run_agent_task(self, session_id):
         session.save(update_fields=["status", "started_at"])
         _publish_chunk(r, session_id, "status", "provisioning")
 
-        # Get workspace config for OAuth token
-        config = WorkspaceAgentConfig.objects.select_related("provider").get(
-            workspace=session.workspace,
-            provider__slug=session.provider_slug,
-        )
+        # Get workspace config (may or may not have OAuth token)
+        try:
+            config = WorkspaceAgentConfig.objects.select_related("provider").get(
+                workspace=session.workspace,
+                provider__slug=session.provider_slug,
+            )
+        except WorkspaceAgentConfig.DoesNotExist:
+            config = None
 
-        oauth_token = _decrypt_token(config.oauth_token_encrypted)
+        # Resolve LLM token via fallback chain
+        llm_token = _get_llm_token(session.provider_slug, config)
+
+        # Resolve GitHub token from the triggering user's Account
+        github_token = _get_github_token(session.triggered_by_id)
 
         # Resolve skill if specified
         skill_instructions = ""
@@ -94,23 +160,33 @@ def run_agent_task(self, session_id):
                     session.skill_trigger,
                 )
 
+        # Resolve provider metadata (cli_tool and docker_image)
+        if config and config.provider:
+            cli_tool = config.provider.cli_tool
+            docker_image = config.provider.docker_image
+        else:
+            from plane.agent.models import AgentProvider
+            provider = AgentProvider.objects.get(slug=session.provider_slug)
+            cli_tool = provider.cli_tool
+            docker_image = provider.docker_image
+
         # Build environment variables for the container
         env = {
             "PROVIDER_SLUG": session.provider_slug,
             "VARIANT_SLUG": session.variant_slug,
             "MODEL_ID": session.model_id,
-            "CLI_TOOL": config.provider.cli_tool,
+            "CLI_TOOL": cli_tool,
             "SESSION_ID": str(session.id),
             "ISSUE_TITLE": getattr(session.issue, "name", "") or "",
             "ISSUE_DESCRIPTION": getattr(session.issue, "description_html", "") or "",
             "COMMENT_TEXT": session.comment_text or "",
             "SKILL_INSTRUCTIONS": skill_instructions,
             "SKILL_TRIGGER": session.skill_trigger or "",
-            # OAuth tokens -- injected as env vars, never persisted to disk
-            "ANTHROPIC_API_KEY": oauth_token if session.provider_slug == "claude" else "",
-            "GOOGLE_API_KEY": oauth_token if session.provider_slug == "gemini" else "",
-            # GitHub token placeholder -- will come from user's GitHub OAuth
-            "GITHUB_TOKEN": "",
+            # LLM tokens -- resolved via fallback chain (workspace → instance → env)
+            "ANTHROPIC_API_KEY": llm_token if session.provider_slug == "claude" else "",
+            "GOOGLE_API_KEY": llm_token if session.provider_slug == "gemini" else "",
+            # GitHub token -- from user's Account model or instance-level setting
+            "GITHUB_TOKEN": github_token,
         }
 
         # Publish the plan steps so the frontend can render a progress list
@@ -124,7 +200,7 @@ def run_agent_task(self, session_id):
         # --- Docker container creation ------------------------------------
         docker_client = docker.from_env()
         container = docker_client.containers.run(
-            image=config.provider.docker_image,
+            image=docker_image,
             environment=env,
             mem_limit="2g",
             cpu_period=100000,
