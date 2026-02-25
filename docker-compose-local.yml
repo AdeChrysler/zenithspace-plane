@@ -152,6 +152,7 @@ services:
       - dev_env
     volumes:
       - ./apps/api:/code
+      - /var/run/docker.sock:/var/run/docker.sock
     command: ./bin/docker-entrypoint-worker.sh
     env_file:
       - ./apps/api/.env

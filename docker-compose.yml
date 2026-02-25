@@ -58,6 +58,8 @@ services:
         DOCKER_BUILDKIT: 1
     restart: always
     command: ./bin/docker-entrypoint-worker.sh
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
     env_file:
       - ./apps/api/.env
     depends_on:
