@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     # Inhouse apps
     "plane.analytics",
     "plane.app",
+    "plane.agent",
     "plane.space",
     "plane.bgtasks",
     "plane.db",
