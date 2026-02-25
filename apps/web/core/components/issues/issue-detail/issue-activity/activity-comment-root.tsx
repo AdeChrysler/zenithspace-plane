@@ -33,6 +33,7 @@ type TIssueActivityCommentRoot = {
   disabled?: boolean;
   sortOrder: E_SORT_ORDER;
   agentCallingCommentId?: string | null;
+  agentCallingProviderName?: string;
 };
 
 export const IssueActivityCommentRoot = observer(function IssueActivityCommentRoot(props: TIssueActivityCommentRoot) {
@@ -47,6 +48,7 @@ export const IssueActivityCommentRoot = observer(function IssueActivityCommentRo
     disabled,
     sortOrder,
     agentCallingCommentId,
+    agentCallingProviderName,
   } = props;
   // store hooks
   const {
@@ -70,13 +72,25 @@ export const IssueActivityCommentRoot = observer(function IssueActivityCommentRo
 
         // Check if this is a comment
         if (activityComment.activity_type === "COMMENT") {
-          // Check if this is an agent comment (persisted)
-          const isAgentComment = comment?.comment_html?.includes('data-agent="zenith-agent"');
+          // Check if this is an agent comment (persisted) — supports both new and legacy formats
+          const commentHtml = comment?.comment_html || "";
+          const agentProviderMatch = commentHtml.match(/data-agent-provider="([^"]+)"/);
+          const isLegacyAgentComment = commentHtml.includes('data-agent="zenith-agent"');
+          const isAgentComment = !!agentProviderMatch || isLegacyAgentComment;
 
           if (isAgentComment && comment) {
+            // Extract the provider-variant slug from the attribute
+            const providerVariantSlug = agentProviderMatch?.[1] || "claude-code-sonnet";
+
+            // Derive a display name from the slug (e.g., "claude-code-sonnet" -> "Claude Code Sonnet")
+            const providerDisplayName = providerVariantSlug
+              .split("-")
+              .map((part: string) => part.charAt(0).toUpperCase() + part.slice(1))
+              .join(" ");
+
             // Extract plain text from agent comment HTML
             const tempDiv = typeof document !== "undefined" ? document.createElement("div") : null;
-            let plainText = comment.comment_html || "";
+            let plainText = commentHtml;
             if (tempDiv) {
               tempDiv.innerHTML = plainText;
               plainText = tempDiv.textContent || tempDiv.innerText || "";
@@ -86,6 +100,8 @@ export const IssueActivityCommentRoot = observer(function IssueActivityCommentRo
               <AgentCommentBlock
                 key={activityComment.id}
                 content={plainText}
+                providerName={providerDisplayName}
+                providerSlug={providerVariantSlug}
                 timestamp={calculateTimeAgo(comment.created_at)}
                 ends={ends}
               />
@@ -107,7 +123,9 @@ export const IssueActivityCommentRoot = observer(function IssueActivityCommentRo
                 enableReplies
               />
               {/* Show calling badge after the comment that triggered the agent */}
-              {agentCallingCommentId && activityComment.id === agentCallingCommentId && <AgentCallingBadge />}
+              {agentCallingCommentId && activityComment.id === agentCallingCommentId && (
+                <AgentCallingBadge providerName={agentCallingProviderName} />
+              )}
             </div>
           );
         }

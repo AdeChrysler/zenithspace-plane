@@ -35,8 +35,14 @@ const DEFAULT_PLAN_STEPS: PlanStep[] = [
 ];
 
 // --- Agent Calling Badge (used by activity-comment-root) ---
-export function AgentCallingBadge() {
+type TAgentCallingBadgeProps = {
+  providerName?: string;
+};
+
+export function AgentCallingBadge(props: TAgentCallingBadgeProps) {
+  const { providerName } = props;
   const badgeRef = useRef<HTMLDivElement>(null);
+  const displayName = providerName || "AI Agent";
 
   useEffect(() => {
     // Scroll badge into view when it appears
@@ -50,7 +56,7 @@ export function AgentCallingBadge() {
       <div className="w-7 flex-shrink-0" />
       <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 animate-pulse">
         <Bot className="size-3.5 text-primary" />
-        <span className="text-xs font-medium text-primary">Calling ZenithAgent...</span>
+        <span className="text-xs font-medium text-primary">Calling {displayName}...</span>
       </div>
     </div>
   );
@@ -59,12 +65,15 @@ export function AgentCallingBadge() {
 // --- Agent Comment Block (for persisted agent comments in the activity feed) ---
 type TAgentCommentBlockProps = {
   content: string;
+  providerName?: string;
+  providerSlug?: string;
   timestamp?: string;
   ends?: "top" | "bottom" | undefined;
 };
 
 export function AgentCommentBlock(props: TAgentCommentBlockProps) {
-  const { content, timestamp, ends } = props;
+  const { content, providerName, providerSlug, timestamp, ends } = props;
+  const displayName = providerName || "AI Agent";
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -90,7 +99,7 @@ export function AgentCommentBlock(props: TAgentCommentBlockProps) {
           {/* Header */}
           <div className="flex items-center justify-between px-3 py-2 border-b border-primary/5">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-primary">ZenithAgent</span>
+              <span className="text-xs font-medium text-primary">{displayName}</span>
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">Bot</span>
             </div>
             <div className="flex items-center gap-2">
@@ -120,12 +129,15 @@ export function AgentCommentBlock(props: TAgentCommentBlockProps) {
 // --- Streaming Response (Linear-style structured UI) ---
 type TAgentResponseProps = {
   request: TAgentRequest;
+  providerName?: string;
+  providerSlug?: string;
   onResponseComplete?: (response: string) => void;
   onSessionStateChange?: (state: TAgentSessionState) => void;
 };
 
 export const AgentStreamingResponse = observer(function AgentStreamingResponse(props: TAgentResponseProps) {
-  const { request, onResponseComplete, onSessionStateChange } = props;
+  const { request, providerName, providerSlug, onResponseComplete, onSessionStateChange } = props;
+  const agentDisplayName = providerName || "AI Agent";
 
   // State
   const [sessionState, setSessionState] = useState<TAgentSessionState>("calling");
@@ -334,7 +346,7 @@ export const AgentStreamingResponse = observer(function AgentStreamingResponse(p
           {/* Header */}
           <div className="flex items-center justify-between px-4 py-2.5 border-b border-primary/10">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-primary">ZenithAgent</span>
+              <span className="text-sm font-medium text-primary">{agentDisplayName}</span>
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">Bot</span>
               {statusLabel && (
                 <span className="text-xs text-secondary animate-pulse">{statusLabel}</span>
@@ -464,7 +476,7 @@ export const AgentStreamingResponse = observer(function AgentStreamingResponse(p
             {sessionState === "calling" && !error && (
               <div className="flex items-center gap-2 py-2">
                 <Loader2 className="size-3.5 text-primary animate-spin" />
-                <span className="text-xs text-secondary">Connecting to ZenithAgent...</span>
+                <span className="text-xs text-secondary">Connecting to {agentDisplayName}...</span>
               </div>
             )}
           </div>

@@ -92,6 +92,7 @@ export const IssueActivity = observer(function IssueActivity(props: TIssueActivi
   const activityOperations = useWorkItemCommentOperations(workspaceSlug, projectId, issueId);
   const {
     agentRequest,
+    activeInvocations,
     showAgentResponse,
     agentCallingCommentId,
     setAgentSessionState,
@@ -102,6 +103,15 @@ export const IssueActivity = observer(function IssueActivity(props: TIssueActivi
   // Persist agent response as a real comment, then dismiss the streaming UI.
   // The streaming component already delays calling this by 3s so the user sees
   // the completed plan animation before we swap to a persisted comment.
+  // Derive provider display name from the first active invocation
+  const activeProviderSlug = activeInvocations.length > 0 ? activeInvocations[0].key : undefined;
+  const activeProviderName = activeProviderSlug
+    ? activeProviderSlug
+        .split("-")
+        .map((part: string) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(" ")
+    : undefined;
+
   const handleAgentResponseComplete = useCallback(
     async (responseText: string) => {
       if (!responseText.trim()) {
@@ -110,8 +120,10 @@ export const IssueActivity = observer(function IssueActivity(props: TIssueActivi
       }
 
       try {
-        // Wrap in agent-identifiable HTML
-        const agentCommentHtml = `<div data-agent="zenith-agent">${responseText.replace(/\n/g, "<br/>")}</div>`;
+        // Use the provider slug from the first invocation for the persisted comment marker
+        const providerSlug = activeInvocations.length > 0 ? activeInvocations[0].key : "claude-code-sonnet";
+        // Wrap in agent-identifiable HTML with the provider-variant slug
+        const agentCommentHtml = `<div data-agent-provider="${providerSlug}">${responseText.replace(/\n/g, "<br/>")}</div>`;
         await activityOperations.createComment({
           comment_html: agentCommentHtml,
         });
@@ -124,7 +136,7 @@ export const IssueActivity = observer(function IssueActivity(props: TIssueActivi
 
       dismissAgentResponse();
     },
-    [activityOperations, dismissAgentResponse]
+    [activityOperations, dismissAgentResponse, activeInvocations]
   );
 
   // Wrap createComment to detect agent mentions after posting
@@ -210,11 +222,14 @@ export const IssueActivity = observer(function IssueActivity(props: TIssueActivi
               disabled={disabled}
               sortOrder={sortOrder || E_SORT_ORDER.ASC}
               agentCallingCommentId={agentCallingCommentId}
+              agentCallingProviderName={activeProviderName}
             />
             {/* Agent streaming response card - positioned after activity list */}
             {showAgentResponse && agentRequest && (
               <AgentStreamingResponse
                 request={agentRequest}
+                providerName={activeProviderName}
+                providerSlug={activeProviderSlug}
                 onResponseComplete={(resp) => void handleAgentResponseComplete(resp)}
                 onSessionStateChange={setAgentSessionState}
               />
