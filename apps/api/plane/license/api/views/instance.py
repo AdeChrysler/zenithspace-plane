@@ -18,7 +18,7 @@ from plane.app.views import BaseAPIView
 from plane.db.models import Workspace
 from plane.license.api.permissions import InstanceAdminPermission
 from plane.license.api.serializers import InstanceSerializer
-from plane.license.models import Instance
+from plane.license.models import Instance, InstanceAdmin
 from plane.license.utils.instance_value import get_configuration_value
 from plane.utils.cache import cache_response, invalidate_cache
 from django.utils.decorators import method_decorator
@@ -42,6 +42,11 @@ class InstanceEndpoint(BaseAPIView):
                 {"is_activated": False, "is_setup_done": False},
                 status=status.HTTP_200_OK,
             )
+        # Self-heal: if admin exists but setup not marked done, fix it
+        if not instance.is_setup_done and InstanceAdmin.objects.filter(instance=instance).exists():
+            instance.is_setup_done = True
+            instance.save()
+
         # Return instance
         serializer = InstanceSerializer(instance)
         data = serializer.data

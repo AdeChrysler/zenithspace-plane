@@ -108,7 +108,19 @@ class InstanceAdminSignUpEndpoint(View):
             return HttpResponseRedirect(url)
 
         # check if the instance has already an admin registered
-        if InstanceAdmin.objects.first():
+        existing_admin = InstanceAdmin.objects.first()
+        if existing_admin:
+            # Self-heal: if admin exists but setup wasn't marked done, fix it
+            if not instance.is_setup_done:
+                instance.is_setup_done = True
+                instance.save()
+            # Try to log in the existing admin and redirect to general
+            email = request.POST.get("email", "")
+            password = request.POST.get("password", "")
+            if email and password and existing_admin.user.email == email.strip().lower() and existing_admin.user.check_password(password):
+                user_login(request=request, user=existing_admin.user, is_admin=True)
+                url = urljoin(base_host(request=request, is_admin=True), "general/")
+                return HttpResponseRedirect(url)
             exc = AuthenticationException(
                 error_code=AUTHENTICATION_ERROR_CODES["ADMIN_ALREADY_EXIST"],
                 error_message="ADMIN_ALREADY_EXIST",
