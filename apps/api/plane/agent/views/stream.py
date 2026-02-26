@@ -11,6 +11,7 @@ from django.http import StreamingHttpResponse
 
 # Third party imports
 from rest_framework import status
+from rest_framework.negotiation import BaseContentNegotiation
 from rest_framework.response import Response
 
 # Module imports
@@ -21,6 +22,16 @@ from plane.agent.serializers import AgentSessionSerializer
 from plane.settings.redis import redis_instance
 
 
+class _IgnoreClientContentNegotiation(BaseContentNegotiation):
+    """Accept any content type the client requests."""
+
+    def select_parser(self, request, parsers):
+        return parsers[0]
+
+    def select_renderer(self, request, renderers, format_suffix=None):
+        return (renderers[0], renderers[0].media_type)
+
+
 class AgentSessionStreamEndpoint(BaseAPIView):
     """
     SSE streaming endpoint for agent session events.
@@ -28,6 +39,8 @@ class AgentSessionStreamEndpoint(BaseAPIView):
     Subscribes to Redis pub/sub channel for the session and
     streams events as text/event-stream.
     """
+
+    content_negotiation_class = _IgnoreClientContentNegotiation
 
     @allow_permission(
         allowed_roles=[ROLE.ADMIN, ROLE.MEMBER], level="WORKSPACE"
