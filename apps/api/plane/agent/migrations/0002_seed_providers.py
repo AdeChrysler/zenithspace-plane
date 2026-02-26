@@ -23,7 +23,7 @@ def seed_providers(apps, schema_editor):
         cli_tool="claude",
         docker_image="plane/agent-claude:latest",
         oauth_provider="anthropic",
-        is_enabled=False,
+        is_enabled=True,
         sort_order=0,
     )
 
@@ -66,7 +66,7 @@ def seed_providers(apps, schema_editor):
         cli_tool="gemini",
         docker_image="plane/agent-gemini:latest",
         oauth_provider="google",
-        is_enabled=False,
+        is_enabled=True,
         sort_order=1,
     )
 
