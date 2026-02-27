@@ -159,7 +159,7 @@ export const LiteTextEditor = React.forwardRef(function LiteTextEditor(
               },
               renderComponent: EditorMentionsRoot,
               getMentionedEntityDetails: (id) => ({
-                display_name: getUserDetails(id)?.display_name ?? "",
+                display_name: getUserDetails(id)?.display_name ?? id.split("-").map((p: string) => p.charAt(0).toUpperCase() + p.slice(1)).join(" "),
               }),
             }}
             placeholder={placeholder}

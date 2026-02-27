@@ -245,15 +245,14 @@ export const IssueActivity = observer(function IssueActivity(props: TIssueActivi
     [activityOperations, checkForAgentMention, workspaceSlug, projectId, issueId, issue]
   );
 
-  // Reply to agent: scroll to comment box and focus it
+  // Reply to agent: scroll to the comment editor and focus it
   const handleReplyToAgent = useCallback((_providerSlug: string) => {
-    // Find the comment creation box and scroll to it + focus
-    const commentBox = document.querySelector<HTMLElement>("[data-testid='comment-create']") ||
-      document.querySelector<HTMLElement>(".comment-create-box") ||
-      document.querySelector<HTMLElement>("[contenteditable='true']");
-    if (commentBox) {
-      commentBox.scrollIntoView({ behavior: "smooth", block: "center" });
-      setTimeout(() => commentBox.focus(), 300);
+    // TipTap editors use .ProseMirror class with contenteditable. Find the last one (comment create box).
+    const editors = document.querySelectorAll<HTMLElement>(".ProseMirror[contenteditable='true']");
+    const editor = editors.length > 0 ? editors[editors.length - 1] : null;
+    if (editor) {
+      editor.scrollIntoView({ behavior: "smooth", block: "center" });
+      setTimeout(() => editor.focus(), 300);
     }
   }, []);
 
