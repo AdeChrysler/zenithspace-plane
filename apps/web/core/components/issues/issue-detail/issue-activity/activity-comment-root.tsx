@@ -34,6 +34,7 @@ type TIssueActivityCommentRoot = {
   sortOrder: E_SORT_ORDER;
   agentCallingCommentId?: string | null;
   agentCallingProviderName?: string;
+  onReplyToAgent?: (providerSlug: string) => void;
 };
 
 export const IssueActivityCommentRoot = observer(function IssueActivityCommentRoot(props: TIssueActivityCommentRoot) {
@@ -49,6 +50,7 @@ export const IssueActivityCommentRoot = observer(function IssueActivityCommentRo
     sortOrder,
     agentCallingCommentId,
     agentCallingProviderName,
+    onReplyToAgent,
   } = props;
   // store hooks
   const {
@@ -80,19 +82,23 @@ export const IssueActivityCommentRoot = observer(function IssueActivityCommentRo
 
           if (isAgentComment && comment) {
             // Extract the provider-variant slug from the attribute
-            const providerVariantSlug = agentProviderMatch?.[1] || "claude-code-sonnet";
+            const providerVariantSlug = agentProviderMatch?.[1] || "claude-sonnet";
 
-            // Derive a display name from the slug (e.g., "claude-code-sonnet" -> "Claude Code Sonnet")
+            // Derive a display name from the slug (e.g., "claude-sonnet" -> "Claude Sonnet")
             const providerDisplayName = providerVariantSlug
               .split("-")
               .map((part: string) => part.charAt(0).toUpperCase() + part.slice(1))
               .join(" ");
 
-            // Extract plain text from agent comment HTML
+            // Extract the inner HTML from the agent div (the rendered markdown)
             const tempDiv = typeof document !== "undefined" ? document.createElement("div") : null;
+            let innerHtml = "";
             let plainText = commentHtml;
             if (tempDiv) {
-              tempDiv.innerHTML = plainText;
+              tempDiv.innerHTML = commentHtml;
+              // Get the agent div's inner HTML (the markdown-rendered content)
+              const agentDiv = tempDiv.querySelector("[data-agent-provider]");
+              innerHtml = agentDiv ? agentDiv.innerHTML : tempDiv.innerHTML;
               plainText = tempDiv.textContent || tempDiv.innerText || "";
             }
 
@@ -100,10 +106,12 @@ export const IssueActivityCommentRoot = observer(function IssueActivityCommentRo
               <AgentCommentBlock
                 key={activityComment.id}
                 content={plainText}
+                contentHtml={innerHtml}
                 providerName={providerDisplayName}
                 providerSlug={providerVariantSlug}
                 timestamp={calculateTimeAgo(comment.created_at)}
                 ends={ends}
+                onReply={onReplyToAgent ? () => onReplyToAgent(providerVariantSlug) : undefined}
               />
             );
           }

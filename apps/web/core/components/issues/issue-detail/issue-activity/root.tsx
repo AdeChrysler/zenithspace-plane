@@ -178,7 +178,17 @@ export const IssueActivity = observer(function IssueActivity(props: TIssueActivi
     async (sessionId: string, providerSlug: string, responseText: string) => {
       if (responseText.trim()) {
         try {
-          const agentCommentHtml = `<div data-agent-provider="${providerSlug}">${responseText.replace(/\n/g, "<br/>")}</div>`;
+          // Fetch the session to get server-rendered markdown HTML
+          let renderedHtml = responseText.replace(/\n/g, "<br/>");
+          try {
+            const session = await agentService.getSession(workspaceSlug, sessionId);
+            if (session.response_html) {
+              renderedHtml = session.response_html;
+            }
+          } catch {
+            // Fallback to basic HTML if session fetch fails
+          }
+          const agentCommentHtml = `<div data-agent-provider="${providerSlug}">${renderedHtml}</div>`;
           await activityOperations.createComment({
             comment_html: agentCommentHtml,
           });
@@ -191,7 +201,7 @@ export const IssueActivity = observer(function IssueActivity(props: TIssueActivi
       // Remove this session from active sessions
       setActiveSessions((prev) => prev.filter((s) => s.sessionId !== sessionId));
     },
-    [activityOperations]
+    [activityOperations, workspaceSlug]
   );
 
   // Callback from CommentCreate when agents are invoked via the agent mode bar
@@ -234,6 +244,18 @@ export const IssueActivity = observer(function IssueActivity(props: TIssueActivi
     }),
     [activityOperations, checkForAgentMention, workspaceSlug, projectId, issueId, issue]
   );
+
+  // Reply to agent: scroll to comment box and focus it
+  const handleReplyToAgent = useCallback((_providerSlug: string) => {
+    // Find the comment creation box and scroll to it + focus
+    const commentBox = document.querySelector<HTMLElement>("[data-testid='comment-create']") ||
+      document.querySelector<HTMLElement>(".comment-create-box") ||
+      document.querySelector<HTMLElement>("[contenteditable='true']");
+    if (commentBox) {
+      commentBox.scrollIntoView({ behavior: "smooth", block: "center" });
+      setTimeout(() => commentBox.focus(), 300);
+    }
+  }, []);
 
   const project = getProjectById(projectId);
   const renderCommentCreationBox = useMemo(
@@ -292,6 +314,7 @@ export const IssueActivity = observer(function IssueActivity(props: TIssueActivi
               sortOrder={sortOrder || E_SORT_ORDER.ASC}
               agentCallingCommentId={agentCallingCommentId}
               agentCallingProviderName={activeProviderName}
+              onReplyToAgent={handleReplyToAgent}
             />
             {/* Multi-agent: concurrent streaming responses */}
             {activeSessions.map((session) => (
@@ -304,6 +327,7 @@ export const IssueActivity = observer(function IssueActivity(props: TIssueActivi
                 onResponseComplete={(resp) =>
                   void handleSessionResponseComplete(session.sessionId, session.providerSlug, resp)
                 }
+                onReply={() => handleReplyToAgent(session.providerSlug)}
               />
             ))}
             {!disabled && sortOrder === E_SORT_ORDER.ASC && renderCommentCreationBox}

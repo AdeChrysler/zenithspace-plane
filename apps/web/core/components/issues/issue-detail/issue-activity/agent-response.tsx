@@ -6,8 +6,9 @@
 
 "use client";
 
-import { Bot, Check, ChevronRight, Circle, Copy, Loader2, RefreshCw, Zap } from "lucide-react";
+import { Bot, Check, ChevronRight, Circle, Copy, Loader2, MessageSquare, RefreshCw, Zap } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
 import { observer } from "mobx-react";
 // plane imports
 // eslint-disable-next-line import/no-unresolved
@@ -64,14 +65,16 @@ export function AgentCallingBadge(props: TAgentCallingBadgeProps) {
 // --- Agent Comment Block (for persisted agent comments in the activity feed) ---
 type TAgentCommentBlockProps = {
   content: string;
+  contentHtml?: string;
   providerName?: string;
   providerSlug?: string;
   timestamp?: string;
   ends?: "top" | "bottom" | undefined;
+  onReply?: () => void;
 };
 
 export function AgentCommentBlock(props: TAgentCommentBlockProps) {
-  const { content, providerName, timestamp, ends } = props;
+  const { content, contentHtml, providerName, timestamp, ends, onReply } = props;
   const displayName = providerName || "AI Agent";
   const [copied, setCopied] = useState(false);
 
@@ -118,7 +121,32 @@ export function AgentCommentBlock(props: TAgentCommentBlockProps) {
             </div>
           </div>
           {/* Body */}
-          <div className="px-3 py-2.5 text-sm text-primary whitespace-pre-wrap">{content}</div>
+          {contentHtml ? (
+            <div
+              className="px-3 py-2.5 text-sm text-primary prose prose-sm max-w-none
+                prose-headings:text-primary prose-strong:text-primary prose-code:text-primary
+                prose-code:bg-layer-3 prose-code:px-1 prose-code:py-0.5 prose-code:rounded
+                prose-pre:bg-layer-3 prose-pre:border prose-pre:border-layer-4
+                prose-a:text-primary prose-a:underline"
+              dangerouslySetInnerHTML={{ __html: contentHtml }}
+            />
+          ) : (
+            <div className="px-3 py-2.5 text-sm text-primary prose prose-sm max-w-none">
+              <ReactMarkdown>{content}</ReactMarkdown>
+            </div>
+          )}
+          {/* Reply button */}
+          {onReply && (
+            <div className="px-3 py-2 border-t border-primary/5">
+              <button
+                onClick={onReply}
+                className="flex items-center gap-1.5 text-xs text-secondary hover:text-primary transition-colors"
+              >
+                <MessageSquare className="size-3" />
+                <span>Reply to {displayName}</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -134,10 +162,11 @@ type TAgentResponseProps = {
   providerSlug?: string;
   onResponseComplete?: (response: string) => void;
   onSessionStateChange?: (state: TAgentSessionState) => void;
+  onReply?: () => void;
 };
 
 export const AgentStreamingResponse = observer(function AgentStreamingResponse(props: TAgentResponseProps) {
-  const { sessionId, workspaceSlug, providerName, onResponseComplete, onSessionStateChange } = props;
+  const { sessionId, workspaceSlug, providerName, onResponseComplete, onSessionStateChange, onReply } = props;
   const agentDisplayName = providerName || "AI Agent";
 
   // State
@@ -489,9 +518,26 @@ export const AgentStreamingResponse = observer(function AgentStreamingResponse(p
                   sessionState !== "completed" && "max-h-[300px] overflow-y-auto"
                 )}
               >
-                <div className="prose prose-sm max-w-none text-primary whitespace-pre-wrap text-sm">
-                  {response}
+                <div className="prose prose-sm max-w-none text-primary text-sm
+                  prose-headings:text-primary prose-strong:text-primary prose-code:text-primary
+                  prose-code:bg-layer-3 prose-code:px-1 prose-code:py-0.5 prose-code:rounded
+                  prose-pre:bg-layer-3 prose-pre:border prose-pre:border-layer-4
+                  prose-a:text-primary prose-a:underline">
+                  <ReactMarkdown>{response}</ReactMarkdown>
                 </div>
+              </div>
+            )}
+
+            {/* Reply button after completion */}
+            {sessionState === "completed" && response && onReply && (
+              <div className="mt-2 pt-2 border-t border-primary/5">
+                <button
+                  onClick={onReply}
+                  className="flex items-center gap-1.5 text-xs text-secondary hover:text-primary transition-colors"
+                >
+                  <MessageSquare className="size-3" />
+                  <span>Reply to {agentDisplayName}</span>
+                </button>
               </div>
             )}
 

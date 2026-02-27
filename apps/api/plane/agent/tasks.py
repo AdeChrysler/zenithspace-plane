@@ -8,6 +8,8 @@ import json
 import logging
 import os
 
+import markdown as md_lib
+
 # Third party imports
 import redis
 import requests as http_requests
@@ -108,6 +110,21 @@ def _get_llm_token(provider_slug, config):
     return ""
 
 
+SYSTEM_PROMPT = """You are a helpful AI teammate on a project management team using Plane.
+You assist with planning, debugging, code review, and project management tasks.
+
+Guidelines:
+- Be concise and conversational — like a real teammate, not a formal assistant.
+- Use markdown formatting: headers, bullet points, bold, code blocks where appropriate.
+- Keep responses focused and actionable.
+- At the end of your response, suggest 1-2 concrete next actions the user could take, formatted as:
+
+**Next steps:**
+- [action 1]
+- [action 2]
+"""
+
+
 def _build_prompt(session, skill_instructions):
     """Build the LLM prompt from issue context."""
     issue_title = getattr(session.issue, "name", "") or ""
@@ -142,6 +159,7 @@ def _call_anthropic_streaming(model_id, prompt, llm_token, timeout_seconds, redi
         "model": model_id,
         "max_tokens": 8192,
         "stream": True,
+        "system": SYSTEM_PROMPT,
         "messages": [{"role": "user", "content": prompt}],
     }
 
@@ -275,7 +293,10 @@ def run_agent_task(self, session_id):
             session.status = AgentSession.Status.COMPLETED
             session.completed_at = timezone.now()
             session.response_text = full_response
-            session.response_html = html.escape(full_response).replace("\n", "<br/>")
+            session.response_html = md_lib.markdown(
+                full_response,
+                extensions=["fenced_code", "tables", "nl2br"],
+            )
             if session.started_at:
                 session.duration_seconds = int(
                     (session.completed_at - session.started_at).total_seconds()
@@ -345,7 +366,10 @@ def run_agent_task(self, session_id):
             )
             session.completed_at = timezone.now()
             session.response_text = full_response
-            session.response_html = html.escape(full_response).replace("\n", "<br/>")
+            session.response_html = md_lib.markdown(
+                full_response,
+                extensions=["fenced_code", "tables", "nl2br"],
+            )
             session.pull_request_url = pr_url
             session.branch_name = branch_name or f"agent/{session.id}"
             if session.started_at:
