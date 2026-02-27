@@ -5,7 +5,8 @@
 FROM alpine/git AS cloner
 WORKDIR /repo
 ARG CACHEBUST=1
-RUN git clone --depth=1 --branch main https://github.com/AdeChrysler/zenithspace-plane.git .
+ARG GIT_BRANCH=preview
+RUN git clone --depth=1 --branch ${GIT_BRANCH} https://github.com/AdeChrysler/zenithspace-plane.git .
 
 FROM python:3.12.10-alpine
 

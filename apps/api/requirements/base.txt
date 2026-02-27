@@ -73,3 +73,5 @@ drf-spectacular==0.28.0
 nh3==0.2.18
 # docker
 docker>=7.0.0
+# markdown rendering for agent responses
+Markdown>=3.5
